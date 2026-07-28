@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
-    // Evita que la página haga un refresh nativo que borre todo
     e.preventDefault()
     setLoading(true)
     setError(null)
@@ -18,7 +19,6 @@ export default function LoginPage() {
     console.log("1. Botón presionado. Iniciando proceso...")
 
     try {
-      // Inyectamos las claves directo acá para garantizar que el cliente se cree sí o sí
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rlrxixsceubedsrnwfkg.supabase.co'
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
 
@@ -37,7 +37,10 @@ export default function LoginPage() {
         setLoading(false)
       } else {
         console.log("4. ¡Login exitoso! Redirigiendo...")
-        window.location.href = '/'
+        
+        await new Promise(resolve => setTimeout(resolve, 300))
+        router.push('/')
+        router.refresh()
       }
     } catch (err: any) {
       console.error("ERROR CRÍTICO ATRAPADO:", err)
