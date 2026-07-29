@@ -2,14 +2,12 @@
 
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,9 +36,8 @@ export default function LoginPage() {
       } else {
         console.log("4. ¡Login exitoso! Redirigiendo...")
         
-        await new Promise(resolve => setTimeout(resolve, 300))
-        router.push('/')
-        router.refresh()
+        // Forzamos la recarga limpia de la página raíz para que el navegador guarde la cookie y entre
+        window.location.href = '/'
       }
     } catch (err: any) {
       console.error("ERROR CRÍTICO ATRAPADO:", err)
