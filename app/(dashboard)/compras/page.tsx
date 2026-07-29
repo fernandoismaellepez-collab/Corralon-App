@@ -24,15 +24,13 @@ interface OrdenCompra {
 export default function ComprasYSolpesPage() {
   const [montado, setMontado] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
-  const { productos, proveedores } = useInventario() as { productos: any[]; proveedores: any[] };
+  const inventario = useInventario() as any;
+  const productos = inventario?.productos || [];
 
-  // Estados para la nueva orden de compra
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState('');
   const [productoIdTemp, setProductoIdTemp] = useState('');
   const [cantidadTemp, setCantidadTemp] = useState(1);
   const [itemsOrden, setItemsOrden] = useState<ItemOrdenCompra[]>([]);
-  
-  // Lista de órdenes de compra guardadas en localStorage para persistencia visual
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
 
   useEffect(() => {
@@ -42,14 +40,14 @@ export default function ComprasYSolpesPage() {
       try {
         setOrdenes(JSON.parse(guardadas));
       } catch (e) {
-        console.error("Error al cargar órdenes de compra", e);
+        console.error("Error al cargar órdenes", e);
       }
     }
   }, []);
 
   const agregarItemAOrden = () => {
     if (!productoIdTemp) return;
-    const prod = productos.find(p => p.id === productoIdTemp);
+    const prod = productos.find((p: any) => p.id === productoIdTemp);
     if (!prod) return;
     const cant = Number(cantidadTemp) || 1;
 
@@ -63,10 +61,10 @@ export default function ComprasYSolpesPage() {
         ...itemsOrden,
         {
           productoId: prod.id,
-          codigo: prod.codigo,
+          codigo: prod.codigo || 'S/C',
           nombre: prod.nombre,
           cantidad: cant,
-          precioEstimado: prod.precio // Tomamos como referencia el precio de venta o base
+          precioEstimado: prod.precio || 0
         }
       ]);
     }
@@ -97,7 +95,6 @@ export default function ComprasYSolpesPage() {
     setOrdenes(nuevasOrdenes);
     localStorage.setItem('corralon_ordenes_compra', JSON.stringify(nuevasOrdenes));
 
-    // Resetear y cerrar modal
     setModalAbierto(false);
     setProveedorSeleccionado('');
     setItemsOrden([]);
@@ -256,20 +253,10 @@ export default function ComprasYSolpesPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 >
                   <option value="">-- Seleccionar Proveedor --</option>
-                  {proveedores && proveedores.length > 0 ? (
-                    proveedores.map((prov: any) => (
-                      <option key={prov.id || prov.nombre} value={prov.nombre}>
-                        {prov.nombre} {prov.rubro ? `(${prov.rubro})` : ''}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Holcim Argentina">Holcim Argentina (Cementos)</option>
-                      <option value="Loma Negra">Loma Negra (Cementos y Cal)</option>
-                      <option value="Acindar">Acindar (Hierros y Aceros)</option>
-                      <option value="Cerámica Quilmes">Cerámica Quilmes (Ladrillos)</option>
-                    </>
-                  )}
+                  <option value="Holcim Argentina">Holcim Argentina (Cementos)</option>
+                  <option value="Loma Negra">Loma Negra (Cementos y Cal)</option>
+                  <option value="Acindar">Acindar (Hierros y Aceros)</option>
+                  <option value="Cerámica Quilmes">Cerámica Quilmes (Ladrillos)</option>
                 </select>
               </div>
 
