@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   })
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rlrxixsceubedsrnwfkg.supabase.co'
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_LjXJCtqev9gGRQjYYORukA_IjfdzSN'
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
 
   const supabase = createServerClient(
     supabaseUrl,
@@ -18,10 +18,15 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
+          // 1. Actualizamos las cookies en la petición saliente
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          
+          // 2. Creamos una nueva respuesta manteniendo la petición con las cookies actualizadas
           supabaseResponse = NextResponse.next({
             request,
           })
+
+          // 3. ¡Crucial! Inyectamos las cookies en la respuesta final para que el navegador las guarde
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -30,17 +35,17 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Verificamos si el usuario tiene sesión activa
+  // Importante: Usar getUser() en lugar de getSession() para validar la sesión de forma segura en el servidor
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 1. Si NO está logueado y NO está en la página de login, lo mandamos al login
+  // Si NO está logueado y quiere entrar a una ruta protegida, lo mandamos al login
   if (!user && !request.nextUrl.pathname.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // 2. Si SÍ está logueado y quiere entrar al login, lo mandamos directo al inicio (/)
+  // Si SÍ está logueado y está en la página de login, lo mandamos al inicio (/)
   if (user && request.nextUrl.pathname.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
@@ -53,8 +58,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Protege todas las rutas excepto archivos estáticos, imágenes y la pantalla de login
+     * Protege todas las rutas excepto archivos estáticos, imágenes y favicons
      */
-    '/((?!_next/static|_next/image|favicon.ico|login|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
