@@ -36,7 +36,7 @@ export default function LoginPage() {
       } else {
         console.log("4. ¡Login exitoso! Redirigiendo...")
         
-        // Forzamos la recarga limpia de la página raíz para que el navegador guarde la cookie y entre
+        // Redirección limpia directa por navegador
         window.location.href = '/'
       }
     } catch (err: any) {
