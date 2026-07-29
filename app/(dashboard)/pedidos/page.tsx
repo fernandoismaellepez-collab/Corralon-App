@@ -326,14 +326,21 @@ export default function PedidosPage() {
                         ${p.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${
-                          estadoActual === 'pendiente' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                          estadoActual === 'preparado' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
-                          estadoActual === 'entregado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                          'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        }`}>
-                          {p.estado}
-                        </span>
+                        <select
+                          value={p.estado || 'Pendiente'}
+                          onChange={(e) => actualizarEstadoPedido(p.id, e.target.value as Pedido['estado'])}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize cursor-pointer focus:outline-none border ${
+                            estadoActual === 'pendiente' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
+                            estadoActual === 'preparado' ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' :
+                            estadoActual === 'entregado' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                            'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                          }`}
+                        >
+                          <option value="Pendiente" className="bg-slate-900 text-slate-200">Pendiente</option>
+                          <option value="Preparado" className="bg-slate-900 text-slate-200">Preparado</option>
+                          <option value="Entregado" className="bg-slate-900 text-slate-200">Entregado</option>
+                          <option value="Cancelado" className="bg-slate-900 text-slate-200">Cancelado</option>
+                        </select>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
