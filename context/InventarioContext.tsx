@@ -64,6 +64,7 @@ export interface InventarioContextType {
   actualizarEstadoPedido: (id: string, estado: Pedido['estado']) => void;
   actualizarRetiroAcopio: (pedidoId: string, productoId: string, cantidadRetirada: number) => void;
   actualizarPedidoCompleto: (pedidoActualizado: Pedido) => void;
+  registrarRecepcionCompra: (itemsCompra: { productoId: string; cantidad: number }[]) => void;
   restablecerInventario: () => void;
 }
 
@@ -81,37 +82,7 @@ const clientesIniciales: Cliente[] = [
   { id: 'CLI-002', nombre: 'María Gómez', telefono: '11 9876-5432', direccion: 'Calle Belgrano 456, Derqui' },
 ];
 
-const pedidosIniciales: Pedido[] = [
-  {
-    id: 'PED-101',
-    nroPedido: '#101',
-    clienteId: 'CLI-001',
-    nombreCliente: 'Juan Pérez',
-    telefonoCliente: '11 2345-6789',
-    direccionEntrega: 'Av. San Martín 1234, Pilar',
-    requiereGrua: 'SI',
-    items: [
-      {
-        productoId: '2',
-        codigo: 'CEM-001',
-        nombre: 'Cemento Avellaneda 50kg',
-        precioUnitario: 9800,
-        cantidad: 15,
-        estadoItem: 'Pendiente',
-        acopio: {
-          esAcopio: true,
-          diasResguardo: 30,
-          fechaEntregaPactada: '2026-04-15',
-          cantidadAcopiadaInicial: 15,
-          cantidadPendienteRetiro: 15
-        }
-      }
-    ],
-    total: 147000,
-    estado: 'Pendiente',
-    fecha: '2026-03-28'
-  }
-];
+const pedidosIniciales: Pedido[] = [];
 
 export function useInventario() {
   const context = useContext(InventarioContext);
@@ -122,81 +93,70 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
-  const [pedidos, setPedidos] = useState<Pedido[]>(pedidosIniciales);
-  const [productos, setProductos] = useState<Producto[]>(productosIniciales);
-  const [clientes, setClientes] = useState<Cliente[]>(clientesIniciales);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Carga inicial desde localStorage solo en el cliente tras el primer render
-  useEffect(() => {
-    try {
-      const guardadosPedidos = localStorage.getItem('inventario_pedidos');
-      if (guardadosPedidos) setPedidos(JSON.parse(guardadosPedidos));
-
-      const guardadosProductos = localStorage.getItem('inventario_productos');
-      if (guardadosProductos) setProductos(JSON.parse(guardadosProductos));
-
-      const guardadosClientes = localStorage.getItem('inventario_clientes');
-      if (guardadosClientes) setClientes(JSON.parse(guardadosClientes));
-    } catch (e) {
-      console.error('Error al cargar de localStorage:', e);
+  const [productos, setProductos] = useState<Producto[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const guardados = localStorage.getItem('inventario_productos');
+        if (guardados) return JSON.parse(guardados);
+      } catch (e) {
+        console.error('Error al leer productos:', e);
+      }
     }
-    setIsLoaded(true);
-  }, []);
+    return productosIniciales;
+  });
 
-  // Guardado automático en localStorage
-  useEffect(() => {
-    if (!isLoaded) return;
-    try {
-      localStorage.setItem('inventario_pedidos', JSON.stringify(pedidos));
-    } catch (e) {
-      console.error('Error al guardar pedidos:', e);
+  const [pedidos, setPedidos] = useState<Pedido[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const guardados = localStorage.getItem('inventario_pedidos');
+        if (guardados) return JSON.parse(guardados);
+      } catch (e) {
+        console.error('Error al leer pedidos:', e);
+      }
     }
-  }, [pedidos, isLoaded]);
+    return pedidosIniciales;
+  });
+
+  const [clientes, setClientes] = useState<Cliente[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const guardados = localStorage.getItem('inventario_clientes');
+        if (guardados) return JSON.parse(guardados);
+      } catch (e) {
+        console.error('Error al leer clientes:', e);
+      }
+    }
+    return clientesIniciales;
+  });
 
   useEffect(() => {
-    if (!isLoaded) return;
     try {
       localStorage.setItem('inventario_productos', JSON.stringify(productos));
     } catch (e) {
       console.error('Error al guardar productos:', e);
     }
-  }, [productos, isLoaded]);
+  }, [productos]);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    try {
+      localStorage.setItem('inventario_pedidos', JSON.stringify(pedidos));
+    } catch (e) {
+      console.error('Error al guardar pedidos:', e);
+    }
+  }, [pedidos]);
+
+  useEffect(() => {
     try {
       localStorage.setItem('inventario_clientes', JSON.stringify(clientes));
     } catch (e) {
       console.error('Error al guardar clientes:', e);
     }
-  }, [clientes, isLoaded]);
-
-  useEffect(() => {
-    setProductos(prevProds => {
-      return prevProds.map(prod => {
-        let totalAcopioProd = 0;
-        pedidos.forEach(ped => {
-          if (ped.estado !== 'Entregado' && ped.estado !== 'Cancelado') {
-            ped.items.forEach(item => {
-              if (item.productoId === prod.id && item.acopio?.esAcopio) {
-                totalAcopioProd += item.acopio.cantidadPendienteRetiro;
-              }
-            });
-          }
-        });
-        return {
-          ...prod,
-          cantidadEnAcopio: totalAcopioProd
-        };
-      });
-    });
-  }, [pedidos]);
+  }, [clientes]);
 
   const agregarProducto = (nuevoProd: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => {
     const productoCompleto: Producto = {
       ...nuevoProd,
-      id: Date.now().toString(),
+      id: `PROD-${Date.now()}`,
       cantidadReservada: 0,
       cantidadEnAcopio: 0,
     };
@@ -206,7 +166,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const actualizarStock = (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada' = 'stockActual') => {
     setProductos(prev => prev.map(prod => {
       if (prod.id === id) {
-        let valorActual = prod[campo];
+        let valorActual = Number(prod[campo]) || 0;
         if (tipo === 'entrada') valorActual += cantidad;
         if (tipo === 'salida') valorActual = Math.max(0, valorActual - cantidad);
         if (tipo === 'ajuste') valorActual = cantidad;
@@ -233,24 +193,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       clienteId = clienteExistente.id;
     }
 
-    const itemsNormalizados = nuevoPedidoData.items.map(item => {
-      if (item.acopio?.esAcopio) {
-        return {
-          ...item,
-          acopio: {
-            ...item.acopio,
-            cantidadAcopiadaInicial: item.cantidad,
-            cantidadPendienteRetiro: item.cantidad,
-          }
-        };
-      }
-      return item;
-    });
-
     const nroPedido = `#${Math.floor(100 + Math.random() * 900)}`;
     const nuevoPedido: Pedido = {
       ...nuevoPedidoData,
-      items: itemsNormalizados,
       clienteId,
       id: `PED-${Date.now()}`,
       nroPedido,
@@ -262,7 +207,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         if (p.id === item.productoId) {
           return {
             ...p,
-            stockActual: Math.max(0, p.stockActual - item.cantidad)
+            stockActual: Math.max(0, Number(p.stockActual) - Number(item.cantidad))
           };
         }
         return p;
@@ -277,7 +222,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       if (ped.id === id) {
         if (estado === 'Cancelado' && ped.estado !== 'Cancelado') {
           ped.items.forEach(item => {
-            setProductos(prods => prods.map(p => p.id === item.productoId ? { ...p, stockActual: p.stockActual + item.cantidad } : p));
+            setProductos(prods => prods.map(p => p.id === item.productoId ? { ...p, stockActual: Number(p.stockActual) + Number(item.cantidad) } : p));
           });
         }
         return { ...ped, estado };
@@ -318,6 +263,35 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     }));
   };
 
+  // VINCULACIÓN MAESTRA Y SÍNCRONA POR ID ÚNICO
+  const registrarRecepcionCompra = (itemsCompra: { productoId: string; cantidad: number }[]) => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const guardados = localStorage.getItem('inventario_productos');
+      let listaActual: Producto[] = guardados ? JSON.parse(guardados) : productos;
+
+      const actualizados = listaActual.map(p => {
+        const itemEncontrado = itemsCompra.find(ic => String(ic.productoId).trim() === String(p.id).trim());
+
+        if (itemEncontrado) {
+          const stockActualNum = Number(p.stockActual) || 0;
+          const cantidadRecibidaNum = Number(itemEncontrado.cantidad) || 0;
+          return {
+            ...p,
+            stockActual: stockActualNum + cantidadRecibidaNum
+          };
+        }
+        return p;
+      });
+
+      localStorage.setItem('inventario_productos', JSON.stringify(actualizados));
+      setProductos(actualizados);
+    } catch (e) {
+      console.error('Error al registrar la recepción de compra:', e);
+    }
+  };
+
   const restablecerInventario = () => {
     setProductos(productosIniciales);
     setClientes(clientesIniciales);
@@ -326,6 +300,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       localStorage.removeItem('inventario_pedidos');
       localStorage.removeItem('inventario_productos');
       localStorage.removeItem('inventario_clientes');
+      localStorage.removeItem('corralon_ordenes_compra');
     }
   };
 
@@ -340,6 +315,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       actualizarEstadoPedido,
       actualizarRetiroAcopio,
       actualizarPedidoCompleto,
+      registrarRecepcionCompra,
       restablecerInventario
     }}>
       {children}

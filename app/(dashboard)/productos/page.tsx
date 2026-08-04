@@ -16,6 +16,17 @@ import { useInventario, Producto } from '@/context/InventarioContext';
 
 const categorias = ['Todas', 'Áridos', 'Cementos y Cal', 'Ladrillos y Bloques', 'Hierros y Mallas', 'Perfiles y Chapas', 'Plomería y Agua', 'Ferretería y Herramientas', 'Pinturas y Impermeabilizantes'];
 
+const prefijosPorCategoria: Record<string, string> = {
+  'Áridos': 'ARI',
+  'Cementos y Cal': 'CEM',
+  'Ladrillos y Bloques': 'LAD',
+  'Hierros y Mallas': 'HIE',
+  'Perfiles y Chapas': 'PER',
+  'Plomería y Agua': 'PLO',
+  'Ferretería y Herramientas': 'FER',
+  'Pinturas y Impermeabilizantes': 'PIN'
+};
+
 export default function ProductosPage() {
   const { productos, agregarProducto, actualizarStock } = useInventario();
 
@@ -23,14 +34,12 @@ export default function ProductosPage() {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todas');
   const [filtroStock, setFiltroStock] = useState<'todos' | 'normal' | 'bajo'>('todos');
 
-  // Estado para el Modal
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null);
 
   const [formProd, setFormProd] = useState({
-    codigo: '',
     nombre: '',
-    categoria: 'Áridos', // Se mantiene por defecto internamente sin mostrarse en el modal de alta
+    categoria: 'Áridos',
     precio: '',
     stockActual: '',
     stockMinimo: '',
@@ -39,7 +48,6 @@ export default function ProductosPage() {
   const handleAbrirCrear = () => {
     setProductoAEditar(null);
     setFormProd({
-      codigo: '',
       nombre: '',
       categoria: 'Áridos',
       precio: '',
@@ -52,7 +60,6 @@ export default function ProductosPage() {
   const handleAbrirEditar = (prod: Producto) => {
     setProductoAEditar(prod);
     setFormProd({
-      codigo: prod.codigo,
       nombre: prod.nombre,
       categoria: (prod as any).categoria || 'Áridos',
       precio: prod.precio.toString(),
@@ -67,20 +74,26 @@ export default function ProductosPage() {
     if (!formProd.nombre || !formProd.precio) return;
 
     if (productoAEditar) {
-      // Si editamos, actualizamos stock base mediante el context
       const nuevoStock = parseInt(formProd.stockActual) || 0;
       const diferenciaStock = nuevoStock - productoAEditar.stockActual;
       if (diferenciaStock !== 0) {
         actualizarStock(productoAEditar.id, Math.abs(diferenciaStock), diferenciaStock > 0 ? 'entrada' : 'salida', 'stockActual');
       }
     } else {
+      // GENERACIÓN AUTOMÁTICA OBLIGATORIA: 3 LETRAS Y 3 NÚMEROS
+      const prefijo = prefijosPorCategoria[formProd.categoria] || 'PRD';
+      const numeroAleatorio = Math.floor(100 + Math.random() * 900);
+      const codigoAutomatico = `${prefijo}-${numeroAleatorio}`;
+
       agregarProducto({
-        codigo: formProd.codigo,
+        id: codigoAutomatico,
+        codigo: codigoAutomatico,
         nombre: formProd.nombre,
         categoria: formProd.categoria,
         precio: parseFloat(formProd.precio) || 0,
         stockActual: parseInt(formProd.stockActual) || 0,
         stockMinimo: parseInt(formProd.stockMinimo) || 5,
+        cantidadReservada: 0,
         cantidadEnAcopio: 0,
       } as any);
     }
@@ -103,7 +116,7 @@ export default function ProductosPage() {
   });
 
   const exportarCSV = () => {
-    const headers = ['ID/Codigo', 'Nombre del Producto', 'Stock Disponible', 'Cantidad Reservada', 'Cantidad en Acopio', 'Precio Unitario', 'Stock Minimo'];
+    const headers = ['ID / Codigo', 'Nombre del Producto', 'Stock Disponible', 'Cantidad Reservada', 'Cantidad en Acopio', 'Precio Unitario', 'Stock Minimo'];
     const rows = productosFiltrados.map(p => [
       `"${p.codigo}"`,
       `"${p.nombre.replace(/"/g, '""')}"`,
@@ -136,7 +149,6 @@ export default function ProductosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-100 flex items-center gap-3">
@@ -152,7 +164,6 @@ export default function ProductosPage() {
           <button 
             onClick={exportarCSV}
             className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-2.5 rounded-xl transition-all border border-slate-700 cursor-pointer"
-            title="Exportar inventario actual a CSV / Excel"
           >
             <Download className="w-4 h-4" />
             Exportar CSV
@@ -168,7 +179,6 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {/* Tarjetas de Resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <button 
           onClick={() => setFiltroStock('todos')}
@@ -216,7 +226,6 @@ export default function ProductosPage() {
         </button>
       </div>
 
-      {/* Barra de Filtros */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="relative w-full md:w-96">
           <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -243,7 +252,6 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {/* Tabla de Productos con Acopio visible */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-300">
@@ -320,7 +328,6 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {/* MODAL PARA CREAR / EDITAR PRODUCTO (Sin Categoría ni Acopio manual) */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
@@ -338,15 +345,23 @@ export default function ProductosPage() {
             </div>
 
             <form onSubmit={handleGuardarProducto} className="space-y-4">
+              {!productoAEditar && (
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs text-amber-400 flex items-center gap-2">
+                  <span>ℹ️ El ID único (3 letras y 3 números) se asignará automáticamente al guardar.</span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">ID / Código</label>
-                <input
-                  type="text"
-                  placeholder="Ej: CEM-003"
-                  value={formProd.codigo}
-                  onChange={(e) => setFormProd({...formProd, codigo: e.target.value})}
+                <label className="block text-xs font-medium text-slate-400 mb-1">Categoría del Material *</label>
+                <select
+                  value={formProd.categoria}
+                  onChange={(e) => setFormProd({...formProd, categoria: e.target.value})}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-amber-500 text-sm"
-                />
+                >
+                  {categorias.filter(c => c !== 'Todas').map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

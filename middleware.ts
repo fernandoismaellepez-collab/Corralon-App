@@ -18,15 +18,12 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // 1. Actualizamos las cookies en la petición saliente
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           
-          // 2. Creamos una nueva respuesta manteniendo la petición con las cookies actualizadas
           supabaseResponse = NextResponse.next({
             request,
           })
 
-          // 3. ¡Crucial! Inyectamos las cookies en la respuesta final para que el navegador las guarde
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -35,18 +32,31 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Importante: Usar getUser() en lugar de getSession() para validar la sesión de forma segura en el servidor
+  // 1. Verificamos la ruta actual
+  const path = request.nextUrl.pathname
+  const isLoginRoute = path.startsWith('/login')
+
+  // 2. Optimizacion: Si es una ruta estática o archivo directo, dejamos pasar sin golpear a Supabase
+  if (
+    path.startsWith('/_next') ||
+    path.startsWith('/api') ||
+    path.includes('.') // archivos como favicon.ico, imagenes, etc.
+  ) {
+    return supabaseResponse
+  }
+
+  // 3. Obtenemos el usuario de manera segura
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Si NO está logueado y quiere entrar a una ruta protegida, lo mandamos al login
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  // 4. Si NO está logueado y NO está en el login, redirigir al login
+  if (!user && !isLoginRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Si SÍ está logueado y está en la página de login, lo mandamos al inicio (/)
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
+  // 5. Si SÍ está logueado y está intentando entrar al login, mandarlo al inicio
+  if (user && isLoginRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
@@ -58,8 +68,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Protege todas las rutas excepto archivos estáticos, imágenes y favicons
+     * Excluir explícitamente recursos estáticos del sistema para evitar ejecuciones innecesarias del middleware
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 }
