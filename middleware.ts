@@ -32,34 +32,46 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 1. Verificamos la ruta actual
   const path = request.nextUrl.pathname
   const isLoginRoute = path.startsWith('/login')
 
-  // 2. Optimizacion: Si es una ruta estática o archivo directo, dejamos pasar sin golpear a Supabase
+  // Excluir archivos estáticos y rutas de API inmediatamente
   if (
     path.startsWith('/_next') ||
     path.startsWith('/api') ||
-    path.includes('.') // archivos como favicon.ico, imagenes, etc.
+    path.includes('.')
   ) {
     return supabaseResponse
   }
 
-  // 3. Obtenemos el usuario de manera segura
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    // Usamos getSession() en lugar de getUser() porque lee las cookies locales de forma ultra rápida
+    // evitando bloqueos de red y el error 504 de Vercel.
+    const { data: { session }, error } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3500)) // Timeout de seguridad de 3.5 segundos
+    ]) as any
 
-  // 4. Si NO está logueado y NO está en el login, redirigir al login
-  if (!user && !isLoginRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
+    const isAuthenticated = !!session && !error
 
-  // 5. Si SÍ está logueado y está intentando entrar al login, mandarlo al inicio
-  if (user && isLoginRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+    // Si NO está logueado y NO está en el login -> al login
+    if (!isAuthenticated && !isLoginRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+
+    // Si SÍ está logueado y está en el login -> al inicio
+    if (isAuthenticated && isLoginRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+
+  } catch (err) {
+    // Si Supabase tarda demasiado en responder por red, dejamos pasar la petición 
+    // en lugar de bloquear al usuario con un error 504 catastrófico.
+    console.error('Middleware Auth Check Warning:', err)
   }
 
   return supabaseResponse
@@ -67,9 +79,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Excluir explícitamente recursos estáticos del sistema para evitar ejecuciones innecesarias del middleware
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 }
