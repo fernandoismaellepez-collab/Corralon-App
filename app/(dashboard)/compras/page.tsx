@@ -24,8 +24,8 @@ interface OrdenCompra {
 export default function ComprasYSolpesPage() {
   const [montado, setMontado] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
-  const inventario = useInventario() as any;
-  const productos = inventario?.productos || [];
+  
+  const { productos, registrarRecepcionCompra } = useInventario();
 
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState('');
   const [productoIdTemp, setProductoIdTemp] = useState('');
@@ -100,52 +100,21 @@ export default function ComprasYSolpesPage() {
     setItemsOrden([]);
   };
 
-  // RECEPCIÓN DE COMPRA BLINDADA (ID AUTOMÁTICO + NOMBRE EXACTO)
   const marcarComoRecibida = (id: string) => {
     const orden = ordenes.find(o => o.id === id);
     
     if (orden && orden.estado === 'Pendiente') {
-      try {
-        const inventarioGuardado = localStorage.getItem('inventario_productos');
-        let listaProductos = inventarioGuardado ? JSON.parse(inventarioGuardado) : [...productos];
+      const itemsParaInventario = orden.items.map(it => ({
+        productoId: it.productoId,
+        cantidad: it.cantidad
+      }));
 
-        orden.items.forEach((it: any) => {
-          const idBuscado = String(it.productoId || it.id).trim().toLowerCase();
-          const nombreBuscado = String(it.nombre || '').trim().toLowerCase();
-          const cantidadRecibida = Number(it.cantidad) || 0;
-
-          listaProductos = listaProductos.map((p: any) => {
-            const pId = String(p.id).trim().toLowerCase();
-            const pCodigo = String(p.codigo || '').trim().toLowerCase();
-            const pNombre = String(p.nombre || '').trim().toLowerCase();
-
-            // Doble validación infalible: Coincide por ID automático o por Nombre
-            if (
-              pId === idBuscado || 
-              pCodigo === idBuscado || 
-              (nombreBuscado && pNombre === nombreBuscado)
-            ) {
-              const stockActualNum = Number(p.stockActual) || 0;
-              return {
-                ...p,
-                stockActual: stockActualNum + cantidadRecibida
-              };
-            }
-            return p;
-          });
-        });
-
-        localStorage.setItem('inventario_productos', JSON.stringify(listaProductos));
-      } catch (e) {
-        console.error("Error al actualizar el stock en localStorage:", e);
-      }
+      registrarRecepcionCompra(itemsParaInventario);
     }
 
     const actualizadas = ordenes.map(o => o.id === id ? { ...o, estado: 'Recibida' as const } : o);
     setOrdenes(actualizadas);
     localStorage.setItem('corralon_ordenes_compra', JSON.stringify(actualizadas));
-
-    window.location.reload();
   };
 
   const pendientesCount = ordenes.filter(o => o.estado === 'Pendiente').length;

@@ -8,10 +8,12 @@ export interface Producto {
   nombre: string;
   categoria?: string;
   precio: number;
+  precioEfectivo?: number;
   stockActual: number;
   stockMinimo: number;
   cantidadReservada: number;
   cantidadEnAcopio: number;
+  proveedorPredeterminado?: string;
 }
 
 export interface DetalleAcopio {
@@ -60,6 +62,7 @@ export interface InventarioContextType {
   clientes: Cliente[];
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
+  importarOActualizarProductosMasivo: (nuevosProductos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => void;
   registrarPedido: (pedido: Omit<Pedido, 'id' | 'nroPedido' | 'fecha'>) => void;
   actualizarEstadoPedido: (id: string, estado: Pedido['estado']) => void;
   actualizarRetiroAcopio: (pedidoId: string, productoId: string, cantidadRetirada: number) => void;
@@ -69,20 +72,6 @@ export interface InventarioContextType {
 }
 
 export const InventarioContext = createContext<InventarioContextType | undefined>(undefined);
-
-const productosIniciales: Producto[] = [
-  { id: '1', codigo: 'ARI-001', nombre: 'Arena Falsa / Común (m3)', categoria: 'Áridos', precio: 18500, stockActual: 45, stockMinimo: 10, cantidadReservada: 0, cantidadEnAcopio: 5 },
-  { id: '2', codigo: 'CEM-001', nombre: 'Cemento Avellaneda 50kg', categoria: 'Cementos y Cal', precio: 9800, stockActual: 120, stockMinimo: 25, cantidadReservada: 0, cantidadEnAcopio: 15 },
-  { id: '3', codigo: 'LAD-001', nombre: 'Ladrillo Hueco 12x18x33', categoria: 'Ladrillos y Bloques', precio: 450, stockActual: 1500, stockMinimo: 300, cantidadReservada: 0, cantidadEnAcopio: 0 },
-  { id: '4', codigo: 'HIER-01', nombre: 'Hierro del 8 mm (Acindar)', categoria: 'Hierros y Mallas', precio: 6200, stockActual: 80, stockMinimo: 20, cantidadReservada: 0, cantidadEnAcopio: 10 },
-];
-
-const clientesIniciales: Cliente[] = [
-  { id: 'CLI-001', nombre: 'Juan Pérez', telefono: '11 2345-6789', direccion: 'Av. San Martín 1234, Pilar' },
-  { id: 'CLI-002', nombre: 'María Gómez', telefono: '11 9876-5432', direccion: 'Calle Belgrano 456, Derqui' },
-];
-
-const pedidosIniciales: Pedido[] = [];
 
 export function useInventario() {
   const context = useContext(InventarioContext);
@@ -102,7 +91,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         console.error('Error al leer productos:', e);
       }
     }
-    return productosIniciales;
+    return [];
   });
 
   const [pedidos, setPedidos] = useState<Pedido[]>(() => {
@@ -114,7 +103,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         console.error('Error al leer pedidos:', e);
       }
     }
-    return pedidosIniciales;
+    return [];
   });
 
   const [clientes, setClientes] = useState<Cliente[]>(() => {
@@ -126,7 +115,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         console.error('Error al leer clientes:', e);
       }
     }
-    return clientesIniciales;
+    return [];
   });
 
   useEffect(() => {
@@ -156,7 +145,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const agregarProducto = (nuevoProd: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => {
     const productoCompleto: Producto = {
       ...nuevoProd,
-      id: `PROD-${Date.now()}`,
+      id: `PROD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       cantidadReservada: 0,
       cantidadEnAcopio: 0,
     };
@@ -174,6 +163,49 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       }
       return prod;
     }));
+  };
+
+  const importarOActualizarProductosMasivo = (nuevosDatos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => {
+    setProductos(prevProds => {
+      let listaModificada = [...prevProds];
+
+      nuevosDatos.forEach(item => {
+        const nombreLimpio = item.nombre.trim().toLowerCase();
+        const indiceExistente = listaModificada.findIndex(p => p.nombre.trim().toLowerCase() === nombreLimpio);
+
+        if (indiceExistente >= 0) {
+          const prodActual = listaModificada[indiceExistente];
+          listaModificada[indiceExistente] = {
+            ...prodActual,
+            precio: item.precio || prodActual.precio,
+            precioEfectivo: item.precioEfectivo ?? prodActual.precioEfectivo,
+            stockActual: Number(prodActual.stockActual || 0) + Number(item.stock || 0),
+            proveedorPredeterminado: item.proveedor || prodActual.proveedorPredeterminado
+          };
+        } else {
+          const prefijo = 'PRD';
+          const codigoAutomatico = `${prefijo}-${Math.floor(1000 + Math.random() * 9000)}`;
+          listaModificada.unshift({
+            id: `PROD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            codigo: codigoAutomatico,
+            nombre: item.nombre,
+            categoria: item.categoria || 'Áridos',
+            precio: item.precio || 0,
+            precioEfectivo: item.precioEfectivo || 0,
+            stockActual: Number(item.stock) || 0,
+            stockMinimo: 5,
+            cantidadReservada: 0,
+            cantidadEnAcopio: 0,
+            proveedorPredeterminado: item.proveedor || ''
+          });
+        }
+      });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('inventario_productos', JSON.stringify(listaModificada));
+      }
+      return listaModificada;
+    });
   };
 
   const registrarPedido = (nuevoPedidoData: Omit<Pedido, 'id' | 'nroPedido' | 'fecha'>) => {
@@ -263,15 +295,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     }));
   };
 
-  // VINCULACIÓN MAESTRA Y SÍNCRONA POR ID ÚNICO
   const registrarRecepcionCompra = (itemsCompra: { productoId: string; cantidad: number }[]) => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const guardados = localStorage.getItem('inventario_productos');
-      let listaActual: Producto[] = guardados ? JSON.parse(guardados) : productos;
-
-      const actualizados = listaActual.map(p => {
+    setProductos(prevProds => {
+      const actualizados = prevProds.map(p => {
         const itemEncontrado = itemsCompra.find(ic => String(ic.productoId).trim() === String(p.id).trim());
 
         if (itemEncontrado) {
@@ -285,22 +311,20 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         return p;
       });
 
-      localStorage.setItem('inventario_productos', JSON.stringify(actualizados));
-      setProductos(actualizados);
-    } catch (e) {
-      console.error('Error al registrar la recepción de compra:', e);
-    }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('inventario_productos', JSON.stringify(actualizados));
+      }
+      return actualizados;
+    });
   };
 
   const restablecerInventario = () => {
-    setProductos(productosIniciales);
-    setClientes(clientesIniciales);
-    setPedidos(pedidosIniciales);
+    setProductos([]);
+    setClientes([]);
+    setPedidos([]);
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('inventario_pedidos');
-      localStorage.removeItem('inventario_productos');
-      localStorage.removeItem('inventario_clientes');
-      localStorage.removeItem('corralon_ordenes_compra');
+      localStorage.clear();
+      window.location.reload();
     }
   };
 
@@ -311,6 +335,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       clientes,
       agregarProducto,
       actualizarStock,
+      importarOActualizarProductosMasivo,
       registrarPedido,
       actualizarEstadoPedido,
       actualizarRetiroAcopio,
