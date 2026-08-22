@@ -59,7 +59,6 @@ export default function ProductosPage() {
     setModalAbierto(false);
   };
 
-  // Función que procesa los datos que llegan desde el componente ImportadorExcel
   const procesarImportacionMasiva = (datosExcel: any[]) => {
     try {
       const prods = datosExcel.map(f => ({
@@ -70,7 +69,6 @@ export default function ProductosPage() {
         stock: Number(f['Stock'] || f['stock'] || f['STOCK'] || 0),
         proveedor: f['Proveedor'] || f['proveedor'] || ''
       }));
-      
       importarOActualizarProductosMasivo(prods);
       alert('¡Importación masiva completada con éxito!');
     } catch (error) {
@@ -87,7 +85,7 @@ export default function ProductosPage() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* PANEL DE ACCIÓN SUPERIOR CON EL IMPORTADOR Y RESET */}
+      {/* PANEL SUPERIOR DE CARGA MASIVA Y RESETEO */}
       <div className="bg-slate-900 border border-amber-500/30 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -99,11 +97,9 @@ export default function ProductosPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Usamos el componente externo creado */}
           <ImportadorExcel onImportar={procesarImportacionMasiva} />
-          
           <button 
-            onClick={() => { if(confirm('¿Estás seguro de vaciar todo el sistema?')) restablecerInventario(); }}
+            onClick={() => { if(confirm('¿Estás seguro de vaciar todo el sistema para cargar productos reales?')) restablecerInventario(); }}
             className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
           >
             <Trash2 className="w-4 h-4" /> Resetear Sistema
