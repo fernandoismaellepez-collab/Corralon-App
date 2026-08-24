@@ -70,8 +70,10 @@ export interface InventarioContextType {
   pedidos: Pedido[];
   clientes: Cliente[];
   usuarios: UsuarioSistema[];
+  gastosFijos: number;
   rolUsuario: 'operador' | 'ejecutivo';
   setRolUsuario: (rol: 'operador' | 'ejecutivo') => void;
+  setGastosFijos: (gastos: number) => void;
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
   importarOActualizarProductosMasivo: (nuevosProductos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => void;
@@ -96,7 +98,20 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
-  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('ejecutivo'); // Por defecto Ejecutivo para control total en pruebas
+  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('ejecutivo');
+
+  // Estado de Gastos Fijos mensuales para el módulo financiero
+  const [gastosFijos, setGastosFijos] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const guardado = localStorage.getItem('inventario_gastos_fijos');
+        if (guardado) return Number(guardado);
+      } catch (e) {
+        console.error('Error al leer gastos fijos:', e);
+      }
+    }
+    return 500000; // Valor inicial por defecto
+  });
 
   // Estado de Usuarios del Sistema
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>(() => {
@@ -108,7 +123,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         console.error('Error al leer usuarios:', e);
       }
     }
-    // Usuario por defecto inicial
     return [
       { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
     ];
@@ -149,6 +163,14 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     }
     return [];
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('inventario_gastos_fijos', String(gastosFijos));
+    } catch (e) {
+      console.error('Error al guardar gastos fijos:', e);
+    }
+  }, [gastosFijos]);
 
   useEffect(() => {
     try {
@@ -387,8 +409,10 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       pedidos,
       clientes,
       usuarios,
+      gastosFijos,
       rolUsuario,
       setRolUsuario,
+      setGastosFijos,
       agregarProducto,
       actualizarStock,
       importarOActualizarProductosMasivo,

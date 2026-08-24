@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { useInventario } from '@/context/InventarioContext';
-import { useState, useEffect } from 'react';
 import { 
   Package, 
   ShoppingCart, 
@@ -13,45 +12,19 @@ import {
   Truck,
   ClipboardList,
   Users,
+  TrendingUp,
   LogOut
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { usuarios } = useInventario();
-  const [rolDetectado, setRolDetectado] = useState<'operador' | 'ejecutivo'>('operador');
+  const { rolUsuario, setRolUsuario } = useInventario();
 
   const supabase = createBrowserClient(
     'https://rlrxixsceubedsrnwfkg.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
   );
-
-  // Verificamos el rol basándonos en el email del usuario logueado y la lista de usuarios guardados
-  useEffect(() => {
-    async function verificarRol() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) {
-          const emailActual = user.email.toLowerCase().trim();
-          
-          // Buscamos si el correo está registrado en la lista de usuarios del sistema
-          const usuarioEncontrado = usuarios.find(u => u.email.toLowerCase().trim() === emailActual);
-          
-          if (usuarioEncontrado) {
-            setRolDetectado(usuarioEncontrado.rol);
-          } else if (emailActual === 'fernandoismaellepez@gmail.com') {
-            setRolDetectado('ejecutivo'); // Resguardo para tu correo principal
-          } else {
-            setRolDetectado('operador');
-          }
-        }
-      } catch (e) {
-        console.error('Error al verificar rol en sidebar:', e);
-      }
-    }
-    verificarRol();
-  }, [usuarios, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -65,6 +38,12 @@ export default function Sidebar() {
       href: '/',
       icon: LayoutDashboard,
       soloEjecutivo: true,
+    },
+    {
+      label: 'Finanzas y Previsibilidad',
+      href: '/finanzas',
+      icon: TrendingUp,
+      soloEjecutivo: true, // Exclusivo ejecutivo
     },
     {
       label: 'Stock',
@@ -99,9 +78,9 @@ export default function Sidebar() {
     },
   ];
 
-  // Filtramos los menús según el rol detectado para este usuario
+  // Filtramos los menús según el rol activo
   const menuFiltrado = menuItems.filter(item => {
-    if (item.soloEjecutivo && rolDetectado !== 'ejecutivo') return false;
+    if (item.soloEjecutivo && rolUsuario !== 'ejecutivo') return false;
     return true;
   });
 
@@ -109,7 +88,7 @@ export default function Sidebar() {
     <aside className="w-64 bg-slate-950 border-r border-slate-800 min-h-screen p-4 flex flex-col justify-between">
       <div className="space-y-6">
         <Link 
-          href={rolDetectado === 'ejecutivo' ? '/' : '/productos'} 
+          href={rolUsuario === 'ejecutivo' ? '/' : '/productos'} 
           className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors hover:bg-slate-900 group"
         >
           <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20 group-hover:border-amber-500/40 transition-colors">
@@ -118,10 +97,23 @@ export default function Sidebar() {
           <div>
             <h2 className="text-lg font-bold text-slate-100 leading-tight group-hover:text-amber-400 transition-colors">Inventario</h2>
             <p className="text-xs text-slate-500 font-medium capitalize">
-              Perfil {rolDetectado}
+              Perfil {rolUsuario}
             </p>
           </div>
         </Link>
+
+        {/* Selector manual rápido para pruebas de rol */}
+        <div className="px-2 py-2 bg-slate-900/60 border border-slate-800 rounded-xl">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cambiar Rol (Test):</label>
+          <select
+            value={rolUsuario}
+            onChange={(e) => setRolUsuario(e.target.value as 'operador' | 'ejecutivo')}
+            className="w-full bg-slate-950 border border-slate-700 text-amber-400 text-xs font-bold px-2 py-1.5 rounded-lg outline-none cursor-pointer"
+          >
+            <option value="operador">Operador</option>
+            <option value="ejecutivo">Ejecutivo</option>
+          </select>
+        </div>
 
         {/* Links del Menú */}
         <nav className="space-y-1.5">
