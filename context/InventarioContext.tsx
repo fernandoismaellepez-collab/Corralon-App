@@ -57,12 +57,20 @@ export interface Pedido {
   observacionCancelacion?: string;
 }
 
+export interface UsuarioSistema {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  rol: 'operador' | 'ejecutivo';
+}
+
 export interface InventarioContextType {
   productos: Producto[];
   pedidos: Pedido[];
   clientes: Cliente[];
+  usuarios: UsuarioSistema[];
   rolUsuario: 'operador' | 'ejecutivo';
-  cargandoRol: boolean;
   setRolUsuario: (rol: 'operador' | 'ejecutivo') => void;
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
@@ -72,6 +80,8 @@ export interface InventarioContextType {
   actualizarRetiroAcopio: (pedidoId: string, productoId: string, cantidadRetirada: number) => void;
   actualizarPedidoCompleto: (pedidoActualizado: Pedido) => void;
   registrarRecepcionCompra: (itemsCompra: { productoId: string; cantidad: number }[]) => void;
+  agregarUsuario: (usuario: Omit<UsuarioSistema, 'id'>) => void;
+  eliminarUsuario: (id: string) => void;
   restablecerInventario: () => void;
 }
 
@@ -86,45 +96,23 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
-  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('operador');
-  const [cargandoRol, setCargandoRol] = useState(true);
+  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('ejecutivo'); // Por defecto Ejecutivo para control total en pruebas
 
-  useEffect(() => {
-    async function obtenerRolReal() {
-      if (typeof window === 'undefined') return;
-      
+  // Estado de Usuarios del Sistema
+  const [usuarios, setUsuarios] = useState<UsuarioSistema[]>(() => {
+    if (typeof window !== 'undefined') {
       try {
-        const supabase = createBrowserClient(
-          'https://rlrxixsceubedsrnwfkg.supabase.co',
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
-        );
-
-        // Usamos getUser() en lugar de getSession() para validar el usuario real de forma segura
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
-        if (user?.email) {
-          const emailUser = user.email.toLowerCase().trim();
-
-          // >>> LISTA DE CORREOS CON ACCESO EJECUTIVO TOTAL <<<
-          const correosEjecutivos = [
-            'fernandoismaellepez@gmail.com',
-          ];
-
-          if (correosEjecutivos.includes(emailUser)) {
-            setRolUsuario('ejecutivo');
-          } else {
-            setRolUsuario('operador');
-          }
-        }
+        const guardados = localStorage.getItem('inventario_usuarios');
+        if (guardados) return JSON.parse(guardados);
       } catch (e) {
-        console.error('Error al verificar el usuario:', e);
-      } finally {
-        setCargandoRol(false);
+        console.error('Error al leer usuarios:', e);
       }
     }
-
-    obtenerRolReal();
-  }, []);
+    // Usuario por defecto inicial
+    return [
+      { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
+    ];
+  });
 
   const [productos, setProductos] = useState<Producto[]>(() => {
     if (typeof window !== 'undefined') {
@@ -164,6 +152,14 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     try {
+      localStorage.setItem('inventario_usuarios', JSON.stringify(usuarios));
+    } catch (e) {
+      console.error('Error al guardar usuarios:', e);
+    }
+  }, [usuarios]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem('inventario_productos', JSON.stringify(productos));
     } catch (e) {
       console.error('Error al guardar productos:', e);
@@ -185,6 +181,18 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       console.error('Error al guardar clientes:', e);
     }
   }, [clientes]);
+
+  const agregarUsuario = (nuevoUsuario: Omit<UsuarioSistema, 'id'>) => {
+    const usuarioCompleto: UsuarioSistema = {
+      ...nuevoUsuario,
+      id: `USR-${Date.now()}`
+    };
+    setUsuarios(prev => [usuarioCompleto, ...prev]);
+  };
+
+  const eliminarUsuario = (id: string) => {
+    setUsuarios(prev => prev.filter(u => u.id !== id));
+  };
 
   const agregarProducto = (nuevoProd: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => {
     const productoCompleto: Producto = {
@@ -366,6 +374,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     setProductos([]);
     setClientes([]);
     setPedidos([]);
+    setUsuarios([]);
     if (typeof window !== 'undefined') {
       localStorage.clear();
       window.location.reload();
@@ -377,8 +386,8 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       productos,
       pedidos,
       clientes,
+      usuarios,
       rolUsuario,
-      cargandoRol,
       setRolUsuario,
       agregarProducto,
       actualizarStock,
@@ -388,6 +397,8 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       actualizarRetiroAcopio,
       actualizarPedidoCompleto,
       registrarRecepcionCompra,
+      agregarUsuario,
+      eliminarUsuario,
       restablecerInventario
     }}>
       {children}

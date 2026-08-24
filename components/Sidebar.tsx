@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Truck,
   ClipboardList,
+  Users,
   LogOut
 } from 'lucide-react';
 
@@ -62,9 +63,15 @@ export default function Sidebar() {
       href: '/compras',
       icon: ClipboardList,
     },
+    {
+      label: 'Usuarios y Roles',
+      href: '/usuarios',
+      icon: Users,
+      soloEjecutivo: true, // Exclusivo para ejecutivos
+    },
   ];
 
-  // Si el rol es operador, filtramos estrictamente el Panel de Control
+  // Si el rol es operador, filtramos estrictamente los módulos exclusivos de ejecutivo
   const menuFiltrado = menuItems.filter(item => {
     if (item.soloEjecutivo && rolUsuario !== 'ejecutivo') return false;
     return true;
@@ -82,8 +89,8 @@ export default function Sidebar() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-100 leading-tight group-hover:text-amber-400 transition-colors">Inventario</h2>
-            <p className="text-xs text-slate-500 font-medium">
-              {rolUsuario === 'ejecutivo' ? 'Perfil Ejecutivo' : 'Perfil Operador'}
+            <p className="text-xs text-slate-500 font-medium capitalize">
+              Perfil {rolUsuario}
             </p>
           </div>
         </Link>
@@ -117,7 +124,7 @@ export default function Sidebar() {
       <div className="border-t border-slate-800/80 pt-4 px-2 space-y-3">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-2.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition text-sm font-medium w-full"
+          className="flex items-center gap-3 px-4 py-2.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition text-sm font-medium w-full cursor-pointer"
         >
           <LogOut className="w-5 h-5" />
           <span>Cerrar Sesión</span>
