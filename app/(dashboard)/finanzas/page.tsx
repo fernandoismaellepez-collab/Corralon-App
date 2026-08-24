@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useInventario } from '@/context/InventarioContext';
-import { useProveedores } from '@/context/ProveedoresContext';
+import { ProveedoresProvider, useProveedores } from '@/context/ProveedoresContext';
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -12,7 +12,7 @@ import {
   Calculator
 } from 'lucide-react';
 
-export default function FinanzasPage() {
+function FinanzasContent() {
   const { productos, pedidos, gastosFijos, setGastosFijos } = useInventario();
   const { proveedores } = useProveedores();
   
@@ -29,7 +29,6 @@ export default function FinanzasPage() {
     pedido.items.forEach(item => {
       let costoUnitario = 0;
       
-      // Buscamos el costo real en el catálogo de los proveedores registrados
       for (const prov of proveedores) {
         if (prov.productosOfrecidos) {
           const articuloProv = prov.productosOfrecidos.find(
@@ -42,7 +41,6 @@ export default function FinanzasPage() {
         }
       }
 
-      // Si el producto no está asociado a ningún proveedor, estimamos un 70% como respaldo de seguridad
       if (costoUnitario === 0) {
         costoUnitario = item.precioUnitario * 0.7;
       }
@@ -55,7 +53,6 @@ export default function FinanzasPage() {
   const margenBruto = facturacionTotal - costoTotalVendido;
   const utilidadNeta = margenBruto - gastosFijos;
   
-  // Porcentaje de cobertura de gastos fijos
   const porcentajeGastosCubiertos = gastosFijos > 0 ? Math.min(100, (margenBruto / gastosFijos) * 100) : 100;
   const gastosCubiertos = margenBruto >= gastosFijos;
 
@@ -82,7 +79,6 @@ export default function FinanzasPage() {
           </p>
         </div>
 
-        {/* Botón para configurar Gastos Fijos */}
         <button
           onClick={() => setEditandoGastos(!editandoGastos)}
           className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-200 flex items-center gap-2 transition cursor-pointer"
@@ -92,7 +88,6 @@ export default function FinanzasPage() {
         </button>
       </div>
 
-      {/* Panel rápido para editar Gastos Fijos */}
       {editandoGastos && (
         <form onSubmit={guardarGastosFijos} className="bg-slate-900 border border-amber-500/30 p-6 rounded-2xl shadow-xl max-w-md space-y-4">
           <h3 className="text-md font-bold text-slate-100">Actualizar Gastos Fijos Mensuales</h3>
@@ -122,7 +117,7 @@ export default function FinanzasPage() {
         </form>
       )}
 
-      {/* 🏆 SECCIÓN DE LOGROS Y COBERTURA (Gamification Financiera) */}
+      {/* SECCIÓN DE LOGROS Y COBERTURA */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -145,7 +140,6 @@ export default function FinanzasPage() {
           </span>
         </div>
 
-        {/* Barra de Progreso */}
         <div className="w-full bg-slate-950 rounded-full h-3.5 border border-slate-800 overflow-hidden p-0.5">
           <div 
             className={`h-full rounded-full transition-all duration-500 ${gastosCubiertos ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-amber-500'}`}
@@ -260,5 +254,13 @@ export default function FinanzasPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FinanzasPage() {
+  return (
+    <ProveedoresProvider>
+      <FinanzasContent />
+    </ProveedoresProvider>
   );
 }
