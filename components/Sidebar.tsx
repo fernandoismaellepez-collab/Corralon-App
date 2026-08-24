@@ -11,14 +11,13 @@ import {
   LayoutDashboard,
   Truck,
   ClipboardList,
-  LogOut,
-  UserCheck
+  LogOut
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { rolUsuario, setRolUsuario } = useInventario();
+  const { rolUsuario } = useInventario();
 
   const supabase = createBrowserClient(
     'https://rlrxixsceubedsrnwfkg.supabase.co',
@@ -65,7 +64,7 @@ export default function Sidebar() {
     },
   ];
 
-  // Filtramos el menú para ocultar el Panel de Control si es operador
+  // Si el rol es operador, filtramos estrictamente el Panel de Control
   const menuFiltrado = menuItems.filter(item => {
     if (item.soloEjecutivo && rolUsuario !== 'ejecutivo') return false;
     return true;
@@ -88,28 +87,6 @@ export default function Sidebar() {
             </p>
           </div>
         </Link>
-
-        {/* Selector rápido de rol para alternar entre vistas */}
-        <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-slate-400">
-            <UserCheck className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-medium">Rol:</span>
-          </div>
-          <select
-            value={rolUsuario}
-            onChange={(e) => {
-              const nuevoRol = e.target.value as 'operador' | 'ejecutivo';
-              setRolUsuario(nuevoRol);
-              if (nuevoRol === 'operador' && pathname === '/') {
-                router.push('/productos');
-              }
-            }}
-            className="bg-slate-950 border border-slate-700 text-amber-400 text-xs font-bold px-2 py-1 rounded-lg outline-none cursor-pointer"
-          >
-            <option value="operador">Operador</option>
-            <option value="ejecutivo">Ejecutivo</option>
-          </select>
-        </div>
 
         {/* Links del Menú */}
         <nav className="space-y-1.5">
