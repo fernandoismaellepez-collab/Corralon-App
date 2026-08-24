@@ -19,7 +19,7 @@ import {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { rolUsuario, setRolUsuario } = useInventario();
+  const { rolUsuario } = useInventario();
 
   const supabase = createBrowserClient(
     'https://rlrxixsceubedsrnwfkg.supabase.co',
@@ -43,7 +43,7 @@ export default function Sidebar() {
       label: 'Finanzas y Previsibilidad',
       href: '/finanzas',
       icon: TrendingUp,
-      soloEjecutivo: true, // Exclusivo ejecutivo
+      soloEjecutivo: true,
     },
     {
       label: 'Stock',
@@ -78,7 +78,7 @@ export default function Sidebar() {
     },
   ];
 
-  // Filtramos los menús según el rol activo
+  // Filtramos los menús según el rol real del usuario
   const menuFiltrado = menuItems.filter(item => {
     if (item.soloEjecutivo && rolUsuario !== 'ejecutivo') return false;
     return true;
@@ -102,21 +102,8 @@ export default function Sidebar() {
           </div>
         </Link>
 
-        {/* Selector manual rápido para pruebas de rol */}
-        <div className="px-2 py-2 bg-slate-900/60 border border-slate-800 rounded-xl">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cambiar Rol (Test):</label>
-          <select
-            value={rolUsuario}
-            onChange={(e) => setRolUsuario(e.target.value as 'operador' | 'ejecutivo')}
-            className="w-full bg-slate-950 border border-slate-700 text-amber-400 text-xs font-bold px-2 py-1.5 rounded-lg outline-none cursor-pointer"
-          >
-            <option value="operador">Operador</option>
-            <option value="ejecutivo">Ejecutivo</option>
-          </select>
-        </div>
-
         {/* Links del Menú */}
-        <nav className="space-y-1.5">
+        <nav className="space-y-1.5 pt-2">
           {menuFiltrado.map((item) => {
             const Icon = item.icon;
             const isActive = item.href === '/' 
