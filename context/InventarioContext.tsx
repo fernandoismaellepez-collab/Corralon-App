@@ -98,22 +98,7 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
-  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('ejecutivo');
-
-  // Estado de Gastos Fijos mensuales para el módulo financiero
-  const [gastosFijos, setGastosFijos] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const guardado = localStorage.getItem('inventario_gastos_fijos');
-        if (guardado) return Number(guardado);
-      } catch (e) {
-        console.error('Error al leer gastos fijos:', e);
-      }
-    }
-    return 500000; // Valor inicial por defecto
-  });
-
-  // Estado de Usuarios del Sistema
+  // Estado de Usuarios del Sistema (inicializado primero para poder derivar el rol)
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -126,6 +111,43 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     return [
       { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
     ];
+  });
+
+  // Rol de usuario detectado dinámicamente por la sesión de Supabase o listado
+  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('operador');
+
+  // Efecto para detectar el rol del usuario autenticado en Supabase comparándolo con la lista de usuarios
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      'https://rlrxixsceubedsrnwfkg.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
+    );
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) {
+        const usuarioEncontrado = usuarios.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+        if (usuarioEncontrado) {
+          setRolUsuario(usuarioEncontrado.rol);
+        } else if (user.email === 'fernandoismaellepez@gmail.com') {
+          setRolUsuario('ejecutivo');
+        } else {
+          setRolUsuario('operador');
+        }
+      }
+    });
+  }, [usuarios]);
+
+  // Estado de Gastos Fijos mensuales para el módulo financiero
+  const [gastosFijos, setGastosFijos] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const guardado = localStorage.getItem('inventario_gastos_fijos');
+        if (guardado) return Number(guardado);
+      } catch (e) {
+        console.error('Error al leer gastos fijos:', e);
+      }
+    }
+    return 500000;
   });
 
   const [productos, setProductos] = useState<Producto[]>(() => {
