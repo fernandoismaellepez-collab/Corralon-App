@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useInventario, UsuarioSistema } from '@/context/InventarioContext';
-import { Users, UserPlus, Shield, Trash2, CheckCircle2 } from 'lucide-react';
+import { useInventario } from '@/context/InventarioContext';
+import { Users, UserPlus, Trash2, CheckCircle2 } from 'lucide-react';
 
 export default function UsuariosPage() {
-  const { usuarios, agregarUsuario, eliminarUsuario, rolUsuario, setRolUsuario } = useInventario();
+  const { usuarios, agregarUsuario, eliminarUsuario } = useInventario();
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -45,22 +45,6 @@ export default function UsuariosPage() {
             Administra el personal del corralón y asigna perfiles de Operador o Ejecutivo.
           </p>
         </div>
-
-        {/* Selector de Prueba Rápida de Rol Actual */}
-        <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center gap-3 shadow-md">
-          <Shield className="w-5 h-5 text-amber-500" />
-          <div className="text-xs">
-            <span className="text-slate-400 block">Tu Rol Activo (Test):</span>
-          </div>
-          <select
-            value={rolUsuario}
-            onChange={(e) => setRolUsuario(e.target.value as 'operador' | 'ejecutivo')}
-            className="bg-slate-950 border border-slate-700 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg outline-none cursor-pointer"
-          >
-            <option value="operador">Operador</option>
-            <option value="ejecutivo">Ejecutivo</option>
-          </select>
-        </div>
       </div>
 
       {mensajeExito && (
@@ -87,7 +71,7 @@ export default function UsuariosPage() {
                 placeholder="Ej. Juan"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500 bg-slate-950"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500"
               />
             </div>
 
