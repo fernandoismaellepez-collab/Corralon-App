@@ -90,7 +90,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const [cargandoRol, setCargandoRol] = useState(true);
 
   useEffect(() => {
-    async function obtenerRolPorEmail() {
+    async function obtenerRolReal() {
       if (typeof window === 'undefined') return;
       
       try {
@@ -99,10 +99,11 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
         );
 
-        const { data: { session } } = await supabase.auth.getSession();
+        // Usamos getUser() en lugar de getSession() para validar el usuario real de forma segura
+        const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (session?.user?.email) {
-          const emailUser = session.user.email.toLowerCase().trim();
+        if (user?.email) {
+          const emailUser = user.email.toLowerCase().trim();
 
           // >>> LISTA DE CORREOS CON ACCESO EJECUTIVO TOTAL <<<
           const correosEjecutivos = [
@@ -116,13 +117,13 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           }
         }
       } catch (e) {
-        console.error('Error al definir el rol por email:', e);
+        console.error('Error al verificar el usuario:', e);
       } finally {
         setCargandoRol(false);
       }
     }
 
-    obtenerRolPorEmail();
+    obtenerRolReal();
   }, []);
 
   const [productos, setProductos] = useState<Producto[]>(() => {
