@@ -62,6 +62,7 @@ export interface InventarioContextType {
   pedidos: Pedido[];
   clientes: Cliente[];
   rolUsuario: 'operador' | 'ejecutivo';
+  cargandoRol: boolean;
   setRolUsuario: (rol: 'operador' | 'ejecutivo') => void;
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
@@ -85,8 +86,8 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
-  // Estado para el control de roles ('operador' o 'ejecutivo') basado en el email de sesión
   const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('operador');
+  const [cargandoRol, setCargandoRol] = useState(true);
 
   useEffect(() => {
     async function obtenerRolPorEmail() {
@@ -103,20 +104,21 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         if (session?.user?.email) {
           const emailUser = session.user.email.toLowerCase().trim();
 
-          // >>> DEFINE AQUÍ LOS CORREOS QUE TENDRÁN ACCESO EJECUTIVO TOTAL <<<
+          // >>> LISTA DE CORREOS CON ACCESO EJECUTIVO TOTAL <<<
           const correosEjecutivos = [
-            'fernandoismaellepez@gmail.com', 'Fer.i.lepez@gmail.com' // Tu correo actual
-            // Agrega más correos de ejecutivos aquí si lo necesitas
+            'fernandoismaellepez@gmail.com',
           ];
 
           if (correosEjecutivos.includes(emailUser)) {
             setRolUsuario('ejecutivo');
           } else {
-            setRolUsuario('operador'); // Cualquier otro usuario nuevo será operador automáticamente
+            setRolUsuario('operador');
           }
         }
       } catch (e) {
         console.error('Error al definir el rol por email:', e);
+      } finally {
+        setCargandoRol(false);
       }
     }
 
@@ -375,6 +377,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       pedidos,
       clientes,
       rolUsuario,
+      cargandoRol,
       setRolUsuario,
       agregarProducto,
       actualizarStock,
