@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useInventario } from '@/context/InventarioContext';
 import { ProveedoresProvider, useProveedores } from '@/context/ProveedoresContext';
 import { 
@@ -16,8 +16,17 @@ function FinanzasContent() {
   const { productos, pedidos, gastosFijos, setGastosFijos } = useInventario();
   const { proveedores } = useProveedores();
   
+  const [mounted, setMounted] = useState(false);
   const [editandoGastos, setEditandoGastos] = useState(false);
   const [tempGastosFijos, setTempGastosFijos] = useState(gastosFijos);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   // 1. Cálculo de Facturación Total (Ventas vigentes o entregadas)
   const ventasValidas = pedidos.filter(p => p.estado !== 'Cancelado');
