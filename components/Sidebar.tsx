@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { useInventario } from '@/context/InventarioContext';
 import { 
   Package, 
   ShoppingCart, 
@@ -10,14 +11,15 @@ import {
   LayoutDashboard,
   Truck,
   ClipboardList,
-  LogOut
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { rolUsuario, setRolUsuario } = useInventario();
 
-  // Cliente de Supabase blindado por fuerza bruta
   const supabase = createBrowserClient(
     'https://rlrxixsceubedsrnwfkg.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
@@ -34,6 +36,7 @@ export default function Sidebar() {
       label: 'Panel de Control',
       href: '/',
       icon: LayoutDashboard,
+      soloEjecutivo: true, // Exclusivo para ejecutivos
     },
     {
       label: 'Stock',
@@ -62,12 +65,17 @@ export default function Sidebar() {
     },
   ];
 
+  // Filtramos el menú para ocultar el Panel de Control si es operador
+  const menuFiltrado = menuItems.filter(item => {
+    if (item.soloEjecutivo && rolUsuario !== 'ejecutivo') return false;
+    return true;
+  });
+
   return (
     <aside className="w-64 bg-slate-950 border-r border-slate-800 min-h-screen p-4 flex flex-col justify-between">
       <div className="space-y-6">
-        {/* Isologotipo / App Name interactivo hacia el Dashboard */}
         <Link 
-          href="/" 
+          href={rolUsuario === 'ejecutivo' ? '/' : '/productos'} 
           className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors hover:bg-slate-900 group"
         >
           <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20 group-hover:border-amber-500/40 transition-colors">
@@ -75,13 +83,37 @@ export default function Sidebar() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-100 leading-tight group-hover:text-amber-400 transition-colors">Inventario</h2>
-            <p className="text-xs text-slate-500 font-medium">Panel de Control</p>
+            <p className="text-xs text-slate-500 font-medium">
+              {rolUsuario === 'ejecutivo' ? 'Perfil Ejecutivo' : 'Perfil Operador'}
+            </p>
           </div>
         </Link>
 
+        {/* Selector rápido de rol para alternar entre vistas */}
+        <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-slate-400">
+            <UserCheck className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-medium">Rol:</span>
+          </div>
+          <select
+            value={rolUsuario}
+            onChange={(e) => {
+              const nuevoRol = e.target.value as 'operador' | 'ejecutivo';
+              setRolUsuario(nuevoRol);
+              if (nuevoRol === 'operador' && pathname === '/') {
+                router.push('/productos');
+              }
+            }}
+            className="bg-slate-950 border border-slate-700 text-amber-400 text-xs font-bold px-2 py-1 rounded-lg outline-none cursor-pointer"
+          >
+            <option value="operador">Operador</option>
+            <option value="ejecutivo">Ejecutivo</option>
+          </select>
+        </div>
+
         {/* Links del Menú */}
         <nav className="space-y-1.5">
-          {menuItems.map((item) => {
+          {menuFiltrado.map((item) => {
             const Icon = item.icon;
             const isActive = item.href === '/' 
               ? pathname === '/' 
@@ -105,7 +137,6 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Pie del Sidebar con Botón de Cerrar Sesión y Versión */}
       <div className="border-t border-slate-800/80 pt-4 px-2 space-y-3">
         <button
           onClick={handleLogout}

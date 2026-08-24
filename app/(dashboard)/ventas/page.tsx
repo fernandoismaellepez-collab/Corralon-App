@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function VentasPage() {
-  const { pedidos } = useInventario();
+  const { pedidos, rolUsuario } = useInventario();
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
@@ -123,6 +123,9 @@ export default function VentasPage() {
     ventanaImpresion.document.close();
   };
 
+  // Fecha actual en formato YYYY-MM-DD para el cierre de caja diario del operador
+  const hoyStr = new Date().toISOString().split('T')[0];
+
   const pedidosFiltrados = montado ? pedidos.filter(p => {
     const esFinalizado = p.estado?.toLowerCase() === 'entregado' || p.estado?.toLowerCase() === 'finalizado';
     const coincideTexto = 
@@ -130,7 +133,10 @@ export default function VentasPage() {
       (p.nroPedido || '').toLowerCase().includes(busqueda.toLowerCase()) ||
       (p.direccionEntrega || '').toLowerCase().includes(busqueda.toLowerCase());
 
-    return esFinalizado && coincideTexto;
+    // Si es operador, filtramos estrictamente solo las ventas cuya fecha sea el día de hoy
+    const esDelDia = rolUsuario === 'operador' ? (p.fecha === hoyStr) : true;
+
+    return esFinalizado && coincideTexto && esDelDia;
   }) : [];
 
   const montoTotalVentas = pedidosFiltrados.reduce((acc, p) => acc + p.total, 0);
@@ -142,20 +148,23 @@ export default function VentasPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-100 flex items-center gap-3">
             <DollarSign className="w-8 h-8 text-emerald-500" />
-            Historial de Ventas y Facturación
+            {rolUsuario === 'operador' ? 'Cierre de Caja Diario (Ventas de Hoy)' : 'Historial de Ventas y Facturación'}
           </h1>
           <p className="text-slate-400 mt-1">
-            Registro y control de todas las operaciones y pedidos completados exitosamente.
+            {rolUsuario === 'operador' 
+              ? 'Control de operaciones realizadas en la jornada actual. Se reinicia automáticamente cada día.'
+              : 'Registro y control de todas las operaciones y pedidos completados exitosamente.'
+            }
           </p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-4 shadow-md">
           <div className="text-xs text-slate-400 whitespace-nowrap">
-            Total ventas finalizadas: <strong className="text-emerald-400 font-mono">{montado ? pedidosFiltrados.length : 0}</strong>
+            {rolUsuario === 'operador' ? 'Ventas hoy:' : 'Total finalizadas:'} <strong className="text-emerald-400 font-mono">{montado ? pedidosFiltrados.length : 0}</strong>
           </div>
           <div className="h-4 w-px bg-slate-800"></div>
           <div className="text-xs text-slate-400 whitespace-nowrap">
-            Facturación Total: <strong className="text-emerald-400 font-mono">${montado ? montoTotalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00'}</strong>
+            {rolUsuario === 'operador' ? 'Total Vendido Hoy (Caja):' : 'Facturación Total:'} <strong className="text-emerald-400 font-mono">${montado ? montoTotalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00'}</strong>
           </div>
         </div>
       </div>
@@ -251,7 +260,10 @@ export default function VentasPage() {
               ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    No hay ventas finalizadas registradas todavía.
+                    {rolUsuario === 'operador' 
+                      ? 'No hay ventas registradas en el día de hoy para el cierre de caja.' 
+                      : 'No hay ventas finalizadas registradas todavía.'
+                    }
                   </td>
                 </tr>
               )}

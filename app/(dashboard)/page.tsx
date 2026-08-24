@@ -1,10 +1,24 @@
 'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useInventario } from '@/context/InventarioContext';
 import { Package, ClipboardList, AlertTriangle, TrendingUp, Users, ArrowUpRight, DollarSign, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { productos, pedidos, clientes } = useInventario();
+  const router = useRouter();
+  const { productos, pedidos, clientes, rolUsuario } = useInventario();
+
+  // Protección de ruta: Si es operador, se le redirige al stock automáticamente
+  useEffect(() => {
+    if (rolUsuario === 'operador') {
+      router.replace('/productos');
+    }
+  }, [rolUsuario, router]);
+
+  if (rolUsuario === 'operador') {
+    return null; // Evita que se renderice contenido mientras redirige
+  }
 
   // Cálculos de métricas
   const totalProductos = productos.length;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 
 export interface Producto {
   id: string;
@@ -60,6 +61,8 @@ export interface InventarioContextType {
   productos: Producto[];
   pedidos: Pedido[];
   clientes: Cliente[];
+  rolUsuario: 'operador' | 'ejecutivo';
+  setRolUsuario: (rol: 'operador' | 'ejecutivo') => void;
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
   importarOActualizarProductosMasivo: (nuevosProductos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => void;
@@ -82,6 +85,44 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
+  // Estado para el control de roles ('operador' o 'ejecutivo') basado en el email de sesión
+  const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('operador');
+
+  useEffect(() => {
+    async function obtenerRolPorEmail() {
+      if (typeof window === 'undefined') return;
+      
+      try {
+        const supabase = createBrowserClient(
+          'https://rlrxixsceubedsrnwfkg.supabase.co',
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
+        );
+
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user?.email) {
+          const emailUser = session.user.email.toLowerCase().trim();
+
+          // >>> DEFINE AQUÍ LOS CORREOS QUE TENDRÁN ACCESO EJECUTIVO TOTAL <<<
+          const correosEjecutivos = [
+            'fernandoismaellepez@gmail.com', 'Fer.i.lepez@gmail.com' // Tu correo actual
+            // Agrega más correos de ejecutivos aquí si lo necesitas
+          ];
+
+          if (correosEjecutivos.includes(emailUser)) {
+            setRolUsuario('ejecutivo');
+          } else {
+            setRolUsuario('operador'); // Cualquier otro usuario nuevo será operador automáticamente
+          }
+        }
+      } catch (e) {
+        console.error('Error al definir el rol por email:', e);
+      }
+    }
+
+    obtenerRolPorEmail();
+  }, []);
+
   const [productos, setProductos] = useState<Producto[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -333,6 +374,8 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       productos,
       pedidos,
       clientes,
+      rolUsuario,
+      setRolUsuario,
       agregarProducto,
       actualizarStock,
       importarOActualizarProductosMasivo,
