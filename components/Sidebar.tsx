@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { useInventario } from '@/context/InventarioContext';
+import { useState, useEffect } from 'react';
 import { 
   Package, 
   ShoppingCart, 
@@ -18,12 +19,39 @@ import {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { rolUsuario } = useInventario();
+  const { usuarios } = useInventario();
+  const [rolDetectado, setRolDetectado] = useState<'operador' | 'ejecutivo'>('operador');
 
   const supabase = createBrowserClient(
     'https://rlrxixsceubedsrnwfkg.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
   );
+
+  // Verificamos el rol basándonos en el email del usuario logueado y la lista de usuarios guardados
+  useEffect(() => {
+    async function verificarRol() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          const emailActual = user.email.toLowerCase().trim();
+          
+          // Buscamos si el correo está registrado en la lista de usuarios del sistema
+          const usuarioEncontrado = usuarios.find(u => u.email.toLowerCase().trim() === emailActual);
+          
+          if (usuarioEncontrado) {
+            setRolDetectado(usuarioEncontrado.rol);
+          } else if (emailActual === 'fernandoismaellepez@gmail.com') {
+            setRolDetectado('ejecutivo'); // Resguardo para tu correo principal
+          } else {
+            setRolDetectado('operador');
+          }
+        }
+      } catch (e) {
+        console.error('Error al verificar rol en sidebar:', e);
+      }
+    }
+    verificarRol();
+  }, [usuarios, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -36,7 +64,7 @@ export default function Sidebar() {
       label: 'Panel de Control',
       href: '/',
       icon: LayoutDashboard,
-      soloEjecutivo: true, // Exclusivo para ejecutivos
+      soloEjecutivo: true,
     },
     {
       label: 'Stock',
@@ -67,13 +95,13 @@ export default function Sidebar() {
       label: 'Usuarios y Roles',
       href: '/usuarios',
       icon: Users,
-      soloEjecutivo: true, // Exclusivo para ejecutivos
+      soloEjecutivo: true,
     },
   ];
 
-  // Si el rol es operador, filtramos estrictamente los módulos exclusivos de ejecutivo
+  // Filtramos los menús según el rol detectado para este usuario
   const menuFiltrado = menuItems.filter(item => {
-    if (item.soloEjecutivo && rolUsuario !== 'ejecutivo') return false;
+    if (item.soloEjecutivo && rolDetectado !== 'ejecutivo') return false;
     return true;
   });
 
@@ -81,7 +109,7 @@ export default function Sidebar() {
     <aside className="w-64 bg-slate-950 border-r border-slate-800 min-h-screen p-4 flex flex-col justify-between">
       <div className="space-y-6">
         <Link 
-          href={rolUsuario === 'ejecutivo' ? '/' : '/productos'} 
+          href={rolDetectado === 'ejecutivo' ? '/' : '/productos'} 
           className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors hover:bg-slate-900 group"
         >
           <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20 group-hover:border-amber-500/40 transition-colors">
@@ -90,7 +118,7 @@ export default function Sidebar() {
           <div>
             <h2 className="text-lg font-bold text-slate-100 leading-tight group-hover:text-amber-400 transition-colors">Inventario</h2>
             <p className="text-xs text-slate-500 font-medium capitalize">
-              Perfil {rolUsuario}
+              Perfil {rolDetectado}
             </p>
           </div>
         </Link>
