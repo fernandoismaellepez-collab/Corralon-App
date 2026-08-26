@@ -417,36 +417,20 @@ export default function PedidosPage() {
                             {copiadoId === p.id ? '¡Copiado!' : 'Link'}
                           </button>
 
-                          {/* Botón WhatsApp Automático si está PENDIENTE */}
-                          {estadoActual === 'pendiente' && p.telefonoCliente && (
+                          {/* Botón de WhatsApp Universal que aparece siempre si hay teléfono */}
+                          {p.telefonoCliente && (
                             <button
-                              onClick={() => enviarWhatsAppPendiente(p)}
-                              className="bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white border border-amber-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                              title="Enviar WhatsApp de pedido registrado"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                              WApp
-                            </button>
-                          )}
-
-                          {/* Botón WhatsApp Automático si está PREPARADO (En camino) */}
-                          {estadoActual === 'preparado' && p.telefonoCliente && (
-                            <button
-                              onClick={() => enviarWhatsAppPreparado(p)}
-                              className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                              title="Enviar WhatsApp de pedido en camino"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                              WApp
-                            </button>
-                          )}
-
-                          {/* Botón WhatsApp Automático si está ENTREGADO */}
-                          {estadoActual === 'entregado' && p.telefonoCliente && (
-                            <button
-                              onClick={() => enviarWhatsAppEntrega(p)}
+                              onClick={() => {
+                                if (estadoActual === 'preparado') {
+                                  enviarWhatsAppPreparado(p);
+                                } else if (estadoActual === 'entregado') {
+                                  enviarWhatsAppEntrega(p);
+                                } else {
+                                  enviarWhatsAppPendiente(p);
+                                }
+                              }}
                               className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                              title="Enviar WhatsApp automático de entrega"
+                              title="Enviar WhatsApp al cliente"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                               WApp
