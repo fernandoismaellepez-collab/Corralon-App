@@ -6,6 +6,23 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
+  const path = request.nextUrl.pathname
+  const isLoginRoute = path.startsWith('/login')
+
+  // EXCEPCIÓN: Permitir acceso totalmente libre y público a las rutas de seguimiento de pedidos
+  if (path.startsWith('/seguimiento')) {
+    return supabaseResponse
+  }
+
+  // Excluir archivos estáticos y rutas de API inmediatamente
+  if (
+    path.startsWith('/_next') ||
+    path.startsWith('/api') ||
+    path.includes('.')
+  ) {
+    return supabaseResponse
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rlrxixsceubedsrnwfkg.supabase.co'
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
 
@@ -32,24 +49,10 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const path = request.nextUrl.pathname
-  const isLoginRoute = path.startsWith('/login')
-
-  // Excluir archivos estáticos y rutas de API inmediatamente
-  if (
-    path.startsWith('/_next') ||
-    path.startsWith('/api') ||
-    path.includes('.')
-  ) {
-    return supabaseResponse
-  }
-
   try {
-    // Usamos getSession() en lugar de getUser() porque lee las cookies locales de forma ultra rápida
-    // evitando bloqueos de red y el error 504 de Vercel.
     const { data: { session }, error } = await Promise.race([
       supabase.auth.getSession(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3500)) // Timeout de seguridad de 3.5 segundos
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3500))
     ]) as any
 
     const isAuthenticated = !!session && !error
@@ -69,8 +72,6 @@ export async function middleware(request: NextRequest) {
     }
 
   } catch (err) {
-    // Si Supabase tarda demasiado en responder por red, dejamos pasar la petición 
-    // en lugar de bloquear al usuario con un error 504 catastrófico.
     console.error('Middleware Auth Check Warning:', err)
   }
 

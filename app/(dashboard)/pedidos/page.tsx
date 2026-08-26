@@ -9,7 +9,9 @@ import {
   X, 
   Edit3, 
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  MessageCircle,
+  Share2
 } from 'lucide-react';
 import { useInventario, ItemPedido, Pedido, Cliente } from '@/context/InventarioContext';
 
@@ -51,6 +53,7 @@ export default function PedidosPage() {
   const [pedidoEnEdicion, setPedidoEnEdicion] = useState<Pedido | null>(null);
   const [itemsEditadosTemp, setItemsEditadosTemp] = useState<ItemPedido[]>([]);
   const [observacionCancelacion, setObservacionCancelacion] = useState('');
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
   const clientesFiltradosSugerencias = clientes.filter(c => 
     c.nombre.toLowerCase().includes(busquedaClienteInput.toLowerCase()) || 
@@ -185,6 +188,66 @@ export default function PedidosPage() {
     }
     setModalEdicionAbierto(false);
     setPedidoEnEdicion(null);
+  };
+
+  // Función WhatsApp para pedido PENDIENTE
+  const enviarWhatsAppPendiente = (pedido: Pedido) => {
+    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`;
+    }
+
+    const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
+    const textoMensaje = 
+      `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribimos de parte del corralón para confirmarte que ya ingresamos tu pedido *${pedido.nroPedido}*. 🏗️\n\n` +
+      `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
+      `¡Muchísimas gracias por confiar en nosotros! 🙌`;
+
+    const mensajeCodificado = encodeURIComponent(textoMensaje);
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${mensajeCodificado}`;
+    window.open(urlWhatsApp, '_blank');
+  };
+
+  // Función WhatsApp para pedido PREPARADO / EN CAMINO
+  const enviarWhatsAppPreparado = (pedido: Pedido) => {
+    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`;
+    }
+
+    const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
+    const textoMensaje = 
+      `¡Hola *${pedido.nombreCliente}*! Te escribimos del corralón para avisarte que tu pedido *${pedido.nroPedido}* ya está preparado y saliendo en viaje hacia *${pedido.direccionEntrega}* 🚚📦\n\n` +
+      `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
+      `¡Cualquier cosa avisame! Saludos. 🙌`;
+
+    const mensajeCodificado = encodeURIComponent(textoMensaje);
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${mensajeCodificado}`;
+    window.open(urlWhatsApp, '_blank');
+  };
+
+  // Función WhatsApp para pedido ENTREGADO
+  const enviarWhatsAppEntrega = (pedido: Pedido) => {
+    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`; 
+    }
+
+    const textoMensaje = 
+      `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribo de parte del corralón para avisarte que ya pudimos despachar y entregar tu pedido *${pedido.nroPedido}* en *${pedido.direccionEntrega}* 🚚🏠\n\n` +
+      `Cualquier cosa que necesites o si te quedó faltando algo para la obra, avisanos y lo charlamos. ¡Muchísimas gracias por confiar en nosotros! 🙌`;
+
+    const mensajeCodificado = encodeURIComponent(textoMensaje);
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${mensajeCodificado}`;
+    window.open(urlWhatsApp, '_blank');
+  };
+
+  // Función para copiar el link de seguimiento usando el nroPedido
+  const copiarLinkSeguimiento = (pedido: Pedido) => {
+    const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
+    navigator.clipboard.writeText(urlSeguimiento);
+    setCopiadoId(pedido.id);
+    setTimeout(() => setCopiadoId(null), 2500);
   };
 
   const pedidosFiltrados = pedidos.filter(p => {
@@ -343,7 +406,53 @@ export default function PedidosPage() {
                         </select>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Botón Copiar Link Seguimiento */}
+                          <button
+                            onClick={() => copiarLinkSeguimiento(p)}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Copiar enlace de seguimiento para el cliente"
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-sky-400" />
+                            {copiadoId === p.id ? '¡Copiado!' : 'Link'}
+                          </button>
+
+                          {/* Botón WhatsApp Automático si está PENDIENTE */}
+                          {estadoActual === 'pendiente' && p.telefonoCliente && (
+                            <button
+                              onClick={() => enviarWhatsAppPendiente(p)}
+                              className="bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white border border-amber-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                              title="Enviar WhatsApp de pedido registrado"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              WApp
+                            </button>
+                          )}
+
+                          {/* Botón WhatsApp Automático si está PREPARADO (En camino) */}
+                          {estadoActual === 'preparado' && p.telefonoCliente && (
+                            <button
+                              onClick={() => enviarWhatsAppPreparado(p)}
+                              className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                              title="Enviar WhatsApp de pedido en camino"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              WApp
+                            </button>
+                          )}
+
+                          {/* Botón WhatsApp Automático si está ENTREGADO */}
+                          {estadoActual === 'entregado' && p.telefonoCliente && (
+                            <button
+                              onClick={() => enviarWhatsAppEntrega(p)}
+                              className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                              title="Enviar WhatsApp automático de entrega"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              WApp
+                            </button>
+                          )}
+
                           <button
                             onClick={() => abrirModalEdicion(p)}
                             className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
@@ -352,11 +461,15 @@ export default function PedidosPage() {
                             <Edit3 className="w-3.5 h-3.5 text-amber-400" />
                             Editar
                           </button>
+
                           {estadoActual !== 'entregado' && estadoActual !== 'cancelado' && (
                             <button
-                              onClick={() => actualizarEstadoPedido(p.id, 'Entregado')}
+                              onClick={() => {
+                                actualizarEstadoPedido(p.id, 'Entregado');
+                                if (p.telefonoCliente) enviarWhatsAppEntrega(p);
+                              }}
                               className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                              title="Finalizar Pedido y descontar del stock"
+                              title="Finalizar Pedido, descontar del stock y enviar WhatsApp"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
                               Finalizar

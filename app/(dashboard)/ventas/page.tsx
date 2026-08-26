@@ -123,17 +123,17 @@ export default function VentasPage() {
     ventanaImpresion.document.close();
   };
 
-  // Fecha actual en formato YYYY-MM-DD para el cierre de caja diario del operador
   const hoyStr = new Date().toISOString().split('T')[0];
 
   const pedidosFiltrados = montado ? pedidos.filter(p => {
-    const esFinalizado = p.estado?.toLowerCase() === 'entregado' || p.estado?.toLowerCase() === 'finalizado';
+    const estadoLimpio = (p.estado || '').trim().toLowerCase();
+    const esFinalizado = estadoLimpio === 'entregado' || estadoLimpio === 'finalizado';
+    
     const coincideTexto = 
       (p.nombreCliente || '').toLowerCase().includes(busqueda.toLowerCase()) || 
       (p.nroPedido || '').toLowerCase().includes(busqueda.toLowerCase()) ||
       (p.direccionEntrega || '').toLowerCase().includes(busqueda.toLowerCase());
 
-    // Si es operador, filtramos estrictamente solo las ventas cuya fecha sea el día de hoy
     const esDelDia = rolUsuario === 'operador' ? (p.fecha === hoyStr) : true;
 
     return esFinalizado && coincideTexto && esDelDia;
@@ -143,7 +143,6 @@ export default function VentasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header del Módulo */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-100 flex items-center gap-3">
@@ -169,7 +168,6 @@ export default function VentasPage() {
         </div>
       </div>
 
-      {/* BARRA DE BÚSQUEDA */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -183,7 +181,6 @@ export default function VentasPage() {
         </div>
       </div>
 
-      {/* TABLA DE VENTAS */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-300">
@@ -272,7 +269,6 @@ export default function VentasPage() {
         </div>
       </div>
 
-      {/* MODAL DETALLE DE VENTA */}
       {modalDetalleAbierto && pedidoSeleccionado && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">

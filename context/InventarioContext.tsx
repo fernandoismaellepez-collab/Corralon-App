@@ -98,7 +98,6 @@ export function useInventario() {
 }
 
 export function InventarioProvider({ children }: { children: React.ReactNode }) {
-  // Estado de Usuarios del Sistema (inicializado primero para poder derivar el rol)
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -113,10 +112,8 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     ];
   });
 
-  // Rol de usuario detectado dinámicamente por la sesión de Supabase o listado
   const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('operador');
 
-  // Efecto para detectar el rol del usuario autenticado en Supabase comparándolo con la lista de usuarios
   useEffect(() => {
     const supabase = createBrowserClient(
       'https://rlrxixsceubedsrnwfkg.supabase.co',
@@ -137,7 +134,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     });
   }, [usuarios]);
 
-  // Estado de Gastos Fijos mensuales para el módulo financiero
   const [gastosFijos, setGastosFijos] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       try {
