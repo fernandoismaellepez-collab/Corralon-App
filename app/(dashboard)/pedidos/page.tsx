@@ -23,8 +23,9 @@ export default function PedidosPage() {
     registrarPedido, 
     actualizarEstadoPedido, 
     actualizarRetiroAcopio,
-    actualizarPedidoCompleto
-  } = useInventario();
+    actualizarPedidoCompleto,
+    eliminarPedido
+  } = useInventario() as any;
 
   const [montado, setMontado] = useState(false);
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function PedidosPage() {
   const [observacionCancelacion, setObservacionCancelacion] = useState('');
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
-  const clientesFiltradosSugerencias = clientes.filter(c => 
+  const clientesFiltradosSugerencias = clientes.filter((c: Cliente) => 
     c.nombre.toLowerCase().includes(busquedaClienteInput.toLowerCase()) || 
     c.id.toLowerCase().includes(busquedaClienteInput.toLowerCase()) ||
     c.telefono.includes(busquedaClienteInput)
@@ -79,7 +80,7 @@ export default function PedidosPage() {
 
   const agregarItemAlPedido = () => {
     if (!productoIdTemp) return;
-    const prod = productos.find(p => p.id === productoIdTemp);
+    const prod = productos.find((p: any) => p.id === productoIdTemp);
     if (!prod) return;
     const cant = Number(cantidadTemp) || 1;
     const existeIndex = itemsPedido.findIndex(i => i.productoId === prod.id);
@@ -190,59 +191,49 @@ export default function PedidosPage() {
     setPedidoEnEdicion(null);
   };
 
-  // Función WhatsApp para pedido PENDIENTE
   const enviarWhatsAppPendiente = (pedido: Pedido) => {
     let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
     if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
       telefonoLimpio = `549${telefonoLimpio}`;
     }
-
     const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
     const textoMensaje = 
       `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribimos de parte del corralón para confirmarte que ya ingresamos tu pedido *${pedido.nroPedido}*. 🏗️\n\n` +
       `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
       `¡Muchísimas gracias por confiar en nosotros! 🙌`;
 
-    const mensajeCodificado = encodeURIComponent(textoMensaje);
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${mensajeCodificado}`;
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
     window.open(urlWhatsApp, '_blank');
   };
 
-  // Función WhatsApp para pedido PREPARADO / EN CAMINO
   const enviarWhatsAppPreparado = (pedido: Pedido) => {
     let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
     if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
       telefonoLimpio = `549${telefonoLimpio}`;
     }
-
     const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
     const textoMensaje = 
       `¡Hola *${pedido.nombreCliente}*! Te escribimos del corralón para avisarte que tu pedido *${pedido.nroPedido}* ya está preparado y saliendo en viaje hacia *${pedido.direccionEntrega}* 🚚📦\n\n` +
       `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
       `¡Cualquier cosa avisame! Saludos. 🙌`;
 
-    const mensajeCodificado = encodeURIComponent(textoMensaje);
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${mensajeCodificado}`;
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
     window.open(urlWhatsApp, '_blank');
   };
 
-  // Función WhatsApp para pedido ENTREGADO
   const enviarWhatsAppEntrega = (pedido: Pedido) => {
     let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
     if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
       telefonoLimpio = `549${telefonoLimpio}`; 
     }
-
     const textoMensaje = 
       `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribo de parte del corralón para avisarte que ya pudimos despachar y entregar tu pedido *${pedido.nroPedido}* en *${pedido.direccionEntrega}* 🚚🏠\n\n` +
       `Cualquier cosa que necesites o si te quedó faltando algo para la obra, avisanos y lo charlamos. ¡Muchísimas gracias por confiar en nosotros! 🙌`;
 
-    const mensajeCodificado = encodeURIComponent(textoMensaje);
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${mensajeCodificado}`;
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
     window.open(urlWhatsApp, '_blank');
   };
 
-  // Función para copiar el link de seguimiento usando el nroPedido
   const copiarLinkSeguimiento = (pedido: Pedido) => {
     const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
     navigator.clipboard.writeText(urlSeguimiento);
@@ -250,12 +241,12 @@ export default function PedidosPage() {
     setTimeout(() => setCopiadoId(null), 2500);
   };
 
-  const pedidosFiltrados = pedidos.filter(p => {
+  const pedidosFiltrados = pedidos.filter((p: any) => {
     const coincideBusq = (p.nombreCliente || '').toLowerCase().includes(busqueda.toLowerCase()) || 
                          (p.nroPedido || '').toLowerCase().includes(busqueda.toLowerCase()) ||
                          (p.telefonoCliente || '').includes(busqueda);
                          
-    const estadoPedido = (p.estado || 'pendiente').trim().toLowerCase();
+    const estadoPedido = (p.estado || 'Pendiente').trim().toLowerCase();
     const estadoFiltro = filtroEstado.trim().toLowerCase();
     
     const coincideEstado = estadoFiltro === 'todos' || estadoPedido === estadoFiltro;
@@ -329,7 +320,7 @@ export default function PedidosPage() {
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {pedidosFiltrados.length > 0 ? (
-                pedidosFiltrados.map((p) => {
+                pedidosFiltrados.map((p: any) => {
                   const estadoActual = (p.estado || 'Pendiente').toLowerCase();
                   return (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
@@ -345,7 +336,7 @@ export default function PedidosPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="space-y-1.5 max-w-md">
-                          {p.items.map((item, idx) => (
+                          {p.items.map((item: any, idx: number) => (
                             <div key={idx} className="text-xs bg-slate-950/60 border border-slate-800/80 p-2 rounded-lg">
                               <div className="flex justify-between font-medium text-slate-200">
                                 <span>{item.cantidad}x {item.nombre}</span>
@@ -407,7 +398,6 @@ export default function PedidosPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {/* Botón Copiar Link Seguimiento */}
                           <button
                             onClick={() => copiarLinkSeguimiento(p)}
                             className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
@@ -417,7 +407,6 @@ export default function PedidosPage() {
                             {copiadoId === p.id ? '¡Copiado!' : 'Link'}
                           </button>
 
-                          {/* Botón de WhatsApp Universal que aparece siempre si hay teléfono */}
                           {p.telefonoCliente && (
                             <button
                               onClick={() => {
@@ -459,6 +448,19 @@ export default function PedidosPage() {
                               Finalizar
                             </button>
                           )}
+
+                          <button
+                            onClick={() => {
+                              if (confirm(`¿Estás seguro de eliminar el pedido ${p.nroPedido}?`)) {
+                                eliminarPedido(p.id);
+                              }
+                            }}
+                            className="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                            title="Eliminar pedido permanentemente"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Eliminar
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -521,7 +523,7 @@ export default function PedidosPage() {
             <div className="space-y-3">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">Gestión de Estado Ítems por Ítem</label>
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {itemsEditadosTemp.map((item, idx) => (
+                {itemsEditadosTemp.map((item: any, idx: number) => (
                   <div key={idx} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3">
                     <div>
                       <div className="font-bold text-slate-100 text-xs">{item.cantidad}x {item.nombre}</div>
@@ -612,7 +614,7 @@ export default function PedidosPage() {
                   />
                   {busquedaClienteInput.trim().length > 0 && !clienteSeleccionado && clientesFiltradosSugerencias.length > 0 && (
                     <div className="absolute z-20 left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto">
-                      {clientesFiltradosSugerencias.map(cli => (
+                      {clientesFiltradosSugerencias.map((cli: any) => (
                         <div
                           key={cli.id}
                           onClick={() => seleccionarClienteExistente(cli)}
@@ -686,7 +688,7 @@ export default function PedidosPage() {
                       className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-500"
                     >
                       <option value="">-- Seleccionar producto del inventario --</option>
-                      {productos.map(p => (
+                      {productos.map((p: any) => (
                         <option key={p.id} value={p.id}>
                           {p.codigo} - {p.nombre} (Disp: {p.stockActual}) - ${p.precio.toLocaleString('es-AR')}
                         </option>

@@ -76,6 +76,7 @@ export interface InventarioContextType {
   setGastosFijos: (gastos: number) => void;
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
+  actualizarProductoCompleto: (productoActualizado: Producto) => void;
   importarOActualizarProductosMasivo: (nuevosProductos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => void;
   registrarPedido: (pedido: Omit<Pedido, 'id' | 'nroPedido' | 'fecha'>) => void;
   actualizarEstadoPedido: (id: string, estado: Pedido['estado']) => void;
@@ -257,6 +258,25 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     }));
   };
 
+  const actualizarProductoCompleto = (productoActualizado: Producto) => {
+    setProductos(prevProds => {
+      const actualizados = prevProds.map(p => {
+        if (p.id === productoActualizado.id) {
+          return {
+            ...p,
+            ...productoActualizado
+          };
+        }
+        return p;
+      });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('inventario_productos', JSON.stringify(actualizados));
+      }
+      return actualizados;
+    });
+  };
+
   const importarOActualizarProductosMasivo = (nuevosDatos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => {
     setProductos(prevProds => {
       let listaModificada = [...prevProds];
@@ -433,6 +453,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       setGastosFijos,
       agregarProducto,
       actualizarStock,
+      actualizarProductoCompleto,
       importarOActualizarProductosMasivo,
       registrarPedido,
       actualizarEstadoPedido,

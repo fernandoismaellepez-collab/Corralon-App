@@ -13,7 +13,8 @@ import {
   ClipboardList,
   Users,
   TrendingUp,
-  LogOut
+  LogOut,
+  FileText
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -54,6 +55,11 @@ export default function Sidebar() {
       label: 'Ventas',
       href: '/ventas',
       icon: ShoppingCart,
+    },
+    {
+      label: 'Presupuestos',
+      href: '/presupuestos',
+      icon: FileText,
     },
     {
       label: 'Pedidos',

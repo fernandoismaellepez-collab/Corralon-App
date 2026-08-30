@@ -97,8 +97,7 @@ export default function ProductosPage() {
       alert('Error al procesar el archivo. Verifica las columnas de tu Excel.');
     }
   };
-
-  const productosFiltrados = productos.filter(p => {
+  const productosFiltrados = productos.filter((p: any) => {
     const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.codigo.toLowerCase().includes(busqueda.toLowerCase());
     const categoriaProd = (p as any).categoria || 'Áridos';
     const coincideCategoria = categoriaSeleccionada === 'Todas' || categoriaProd === categoriaSeleccionada;
@@ -173,8 +172,8 @@ export default function ProductosPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {productosFiltrados.length > 0 ? (
-              productosFiltrados.map((p) => (
+            {productosFiltrados.length > 0 ? 
+             productosFiltrados.map((p: any) => (
                 <tr key={p.id} className="hover:bg-slate-800/40">
                   <td className="px-5 py-4 font-mono text-amber-500">{p.codigo}</td>
                   <td className="px-5 py-4 text-xs text-slate-400">{(p as any).categoria || 'Áridos'}</td>
@@ -188,7 +187,7 @@ export default function ProductosPage() {
                   </td>
                 </tr>
               ))
-            ) : (
+             : (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                   No hay productos registrados con los filtros seleccionados.
