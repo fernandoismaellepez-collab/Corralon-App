@@ -13,13 +13,23 @@ export default function PresupuestosPage() {
   const [cantidad, setCantidad] = useState(1);
 
   const agregarItem = () => {
-    const prod = productos.find(p => p.id === productoSeleccionado);
+    if (!productoSeleccionado) return;
+    const prod = productos.find((p: any) => p.id === productoSeleccionado);
     if (!prod) return;
 
-    setItemsPresupuesto(prev => [
-      ...prev,
-      { productoId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: Number(cantidad) || 1 }
-    ]);
+    const cant = Number(cantidad) || 1;
+    const existeIndex = itemsPresupuesto.findIndex(i => i.productoId === prod.id);
+
+    if (existeIndex >= 0) {
+      const nuevos = [...itemsPresupuesto];
+      nuevos[existeIndex].cantidad += cant;
+      setItemsPresupuesto(nuevos);
+    } else {
+      setItemsPresupuesto(prev => [
+        ...prev,
+        { productoId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: cant }
+      ]);
+    }
     setProductoSeleccionado('');
     setCantidad(1);
   };
@@ -32,16 +42,22 @@ export default function PresupuestosPage() {
 
   const enviarWhatsAppPresupuesto = () => {
     if (!telefonoCliente || itemsPresupuesto.length === 0) {
-      alert('Ingresa el teléfono del cliente y al menos un producto.');
+      alert('Por favor, ingresa el teléfono del cliente y al menos un producto para enviar el presupuesto.');
       return;
     }
-    let mensaje = `*PRESUPUESTO - CORRALÓN*\nCliente: ${nombreCliente || 'Consumidor Final'}\n\n*Detalle:*\n`;
+
+    let telefonoLimpio = telefonoCliente.replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`;
+    }
+
+    let mensaje = `*PRESUPUESTO - CORRALÓN*\nCliente: ${nombreCliente || 'Consumidor Final'}\n\n*Detalle de materiales:*\n`;
     itemsPresupuesto.forEach(i => {
       mensaje += `- ${i.cantidad}x ${i.nombre} ($${(i.precio * i.cantidad).toLocaleString('es-AR')})\n`;
     });
-    mensaje += `\n*TOTAL ESTIMADO: $${totalPresupuesto.toLocaleString('es-AR')}*\n\n_Presupuesto válido por 7 días._`;
+    mensaje += `\n*TOTAL ESTIMADO: $${totalPresupuesto.toLocaleString('es-AR')}*\n\n_Presupuesto de carácter informativo, válido por 7 días. No reserva stock._`;
 
-    const url = `https://api.whatsapp.com/send?phone=${telefonoCliente}&text=${encodeURIComponent(mensaje)}`;
+    const url = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   };
 
@@ -52,7 +68,9 @@ export default function PresupuestosPage() {
           <h1 className="text-3xl font-bold text-slate-100 flex items-center gap-3">
             <FileText className="w-8 h-8 text-amber-500" /> Presupuestos Rápidos
           </h1>
-          <p className="text-slate-400 text-sm">Genera cotizaciones para clientes sin descontar stock ni registrar pedidos formales.</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Herramienta informativa para cotizar a clientes sin descontar stock ni generar registros en el sistema.
+          </p>
         </div>
       </div>
 
@@ -62,28 +80,55 @@ export default function PresupuestosPage() {
           <h2 className="text-lg font-bold text-white border-b border-slate-800 pb-3">Datos del Cliente</h2>
           <div>
             <label className="block text-xs text-slate-400 mb-1">Nombre del Cliente</label>
-            <input type="text" value={nombreCliente} onChange={e => setNombreCliente(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white" placeholder="Ej. Juan Pérez" />
+            <input 
+              type="text" 
+              value={nombreCliente} 
+              onChange={e => setNombreCliente(e.target.value)} 
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500" 
+              placeholder="Ej. Juan Pérez" 
+            />
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1">Teléfono (WhatsApp)</label>
-            <input type="text" value={telefonoCliente} onChange={e => setTelefonoCliente(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white" placeholder="Ej. 54911..." />
+            <input 
+              type="text" 
+              value={telefonoCliente} 
+              onChange={e => setTelefonoCliente(e.target.value)} 
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500" 
+              placeholder="Ej. 11 2345-6789" 
+            />
           </div>
 
           <h2 className="text-lg font-bold text-white border-b border-slate-800 pb-3 pt-4">Agregar Productos</h2>
           <div>
             <label className="block text-xs text-slate-400 mb-1">Seleccionar Producto</label>
-            <select value={productoSeleccionado} onChange={e => setProductoSeleccionado(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white">
-              <option value="">-- Seleccionar --</option>
-              {productos.map(p => (
-                <option key={p.id} value={p.id}>{p.nombre} (${p.precio})</option>
+            <select 
+              value={productoSeleccionado} 
+              onChange={e => setProductoSeleccionado(e.target.value)} 
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500"
+            >
+              <option value="">-- Seleccionar producto --</option>
+              {productos.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre} (${p.precio.toLocaleString('es-AR')})
+                </option>
               ))}
             </select>
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1">Cantidad</label>
-            <input type="number" min="1" value={cantidad} onChange={e => setCantidad(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white" />
+            <input 
+              type="number" 
+              min="1" 
+              value={cantidad} 
+              onChange={e => setCantidad(Number(e.target.value))} 
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500" 
+            />
           </div>
-          <button onClick={agregarItem} className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-sm flex items-center justify-center gap-2 cursor-pointer">
+          <button 
+            onClick={agregarItem} 
+            className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
+          >
             <Plus className="w-4 h-4" /> Agregar al Presupuesto
           </button>
         </div>
@@ -93,12 +138,12 @@ export default function PresupuestosPage() {
           <div>
             <div className="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
               <div>
-                <h3 className="text-xl font-bold text-white">Cotización / Presupuesto</h3>
-                <p className="text-xs text-slate-400">Cliente: {nombreCliente || 'Consumidor Final'}</p>
+                <h3 className="text-xl font-bold text-white">Vista Previa de Cotización</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Cliente: <strong className="text-slate-200">{nombreCliente || 'Consumidor Final'}</strong></p>
               </div>
               <div className="text-right">
                 <span className="text-xs text-slate-400 block">Total Estimado</span>
-                <span className="text-2xl font-black text-amber-400">${totalPresupuesto.toLocaleString('es-AR')}</span>
+                <span className="text-2xl font-black text-amber-400">${totalPresupuesto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
 
@@ -122,7 +167,7 @@ export default function PresupuestosPage() {
                         <td className="px-4 py-3 text-right">${item.precio.toLocaleString('es-AR')}</td>
                         <td className="px-4 py-3 text-right font-bold text-emerald-400">${(item.precio * item.cantidad).toLocaleString('es-AR')}</td>
                         <td className="px-4 py-3 text-right">
-                          <button onClick={() => eliminarItem(index)} className="text-slate-400 hover:text-rose-400 cursor-pointer">
+                          <button onClick={() => eliminarItem(index)} className="text-slate-400 hover:text-rose-400 cursor-pointer p-1">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </td>
@@ -130,8 +175,8 @@ export default function PresupuestosPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
-                        No hay productos agregados al presupuesto actual.
+                      <td colSpan={5} className="px-4 py-16 text-center text-slate-500">
+                        No hay productos agregados en este presupuesto. (Módulo meramente informativo).
                       </td>
                     </tr>
                   )}
@@ -141,10 +186,16 @@ export default function PresupuestosPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-800 mt-6">
-            <button onClick={() => window.print()} className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold flex items-center gap-2 cursor-pointer">
-              <Printer className="w-4 h-4" /> Imprimir / PDF
+            <button 
+              onClick={() => window.print()} 
+              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <Printer className="w-4 h-4" /> Imprimir
             </button>
-            <button onClick={enviarWhatsAppPresupuesto} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 cursor-pointer">
+            <button 
+              onClick={enviarWhatsAppPresupuesto} 
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 cursor-pointer transition-colors"
+            >
               <Send className="w-4 h-4" /> Enviar por WhatsApp
             </button>
           </div>
