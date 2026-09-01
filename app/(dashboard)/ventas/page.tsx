@@ -10,7 +10,8 @@ import {
   FileText, 
   Printer, 
   X,
-  DollarSign
+  DollarSign,
+  MessageCircle
 } from 'lucide-react';
 
 export default function VentasPage() {
@@ -124,6 +125,32 @@ export default function VentasPage() {
 
     ventanaImpresion.document.write(contenidoHtml);
     ventanaImpresion.document.close();
+  };
+
+  const handleEnviarWhatsApp = (pedido: Pedido) => {
+    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`;
+    }
+
+    let mensaje = `*ZETA CORRALÓN* 🏗️\n` +
+      `Av. Pres. Juan Domingo Perón 4275, Derqui\n` +
+      `Tel: 11 6830 4581\n\n` +
+      `*COMPROBANTE DE VENTA - ${pedido.nroPedido}*\n` +
+      `Fecha: ${pedido.fecha}\n` +
+      `Cliente: ${pedido.nombreCliente}\n` +
+      `Dirección: ${pedido.direccionEntrega}\n\n` +
+      `*Detalle:* \n`;
+
+    pedido.items.forEach(i => {
+      mensaje += `- ${i.cantidad}x ${i.nombre} ($${(i.precioUnitario * i.cantidad).toLocaleString('es-AR')})\n`;
+    });
+
+    mensaje += `\n*TOTAL FACTURADO: $${pedido.total.toLocaleString('es-AR')}*\n\n` +
+      `¡Muchísimas gracias por tu compra en Zeta Corralón! 🙌`;
+
+    const url = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
   };
 
   const hoyStr = new Date().toISOString().split('T')[0];
@@ -253,6 +280,13 @@ export default function VentasPage() {
                         >
                           <Printer className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => handleEnviarWhatsApp(ped)}
+                          className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-lg transition-colors border border-emerald-500/30 cursor-pointer"
+                          title="Enviar por WhatsApp"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -290,7 +324,15 @@ export default function VentasPage() {
                   title="Imprimir Comprobante"
                 >
                   <Printer className="w-4 h-4" />
-                  Imprimir Comprobante
+                  Imprimir
+                </button>
+                <button
+                  onClick={() => handleEnviarWhatsApp(pedidoSeleccionado)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-xs font-semibold rounded-lg transition-colors border border-emerald-500/30 cursor-pointer"
+                  title="Enviar Comprobante por WhatsApp"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
                 </button>
                 <button onClick={() => setModalDetalleAbierto(false)} className="text-slate-400 hover:text-white cursor-pointer">
                   <X className="w-5 h-5" />
