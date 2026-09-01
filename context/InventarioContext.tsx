@@ -113,17 +113,24 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
   );
 
-  // Cargar datos iniciales desde Supabase (y respaldo inicial de localStorage si la nube está vacía)
+  // Cargar datos de Supabase y asegurar respaldo inteligente
   useEffect(() => {
-    async function cargarDatosNube() {
+    async function inicializarDatos() {
       try {
         const { data, error } = await supabase.from('app_data').select('*');
 
         if (error) {
-          console.error('Error al cargar de Supabase:', error);
+          console.error('Error al conectar con Supabase:', error);
           setSincronizando(false);
           return;
         }
+
+        // Obtener lo que hay en localStorage de esta PC por si acaso
+        const prodsLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_productos') || '[]') : [];
+        const pedsLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_pedidos') || '[]') : [];
+        const clisLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_clientes') || '[]') : [];
+        const usrsLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_usuarios') || '[]') : [];
+        const gastosLocal = typeof window !== 'undefined' ? Number(localStorage.getItem('inventario_gastos_fijos') || '500000') : 500000;
 
         if (data && data.length > 0) {
           const mapaDatos: Record<string, any> = {};
@@ -131,53 +138,59 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
             mapaDatos[row.id] = row.payload;
           });
 
-          if (mapaDatos['productos']) setProductos(mapaDatos['productos']);
-          if (mapaDatos['pedidos']) setPedidos(mapaDatos['pedidos']);
-          if (mapaDatos['clientes']) setClientes(mapaDatos['clientes']);
-          if (mapaDatos['usuarios']) setUsuarios(mapaDatos['usuarios']);
-          if (mapaDatos['gastosFijos'] !== undefined) setGastosFijos(mapaDatos['gastosFijos']);
+          // Si esta PC tiene datos locales y la nube está vacía o tiene menos, forzamos subida desde esta PC
+          const prodsNube = mapaDatos['productos'] || [];
+          if (prodsLocal.length > 0 && prodsNube.length === 0) {
+            setProductos(prodsLocal);
+            setPedidos(pedsLocal);
+            setClientes(clisLocal);
+            setUsuarios(usrsLocal);
+            setGastosFijos(gastosLocal);
+
+            await supabase.from('app_data').upsert([
+              { id: 'productos', payload: prodsLocal },
+              { id: 'pedidos', payload: pedsLocal },
+              { id: 'clientes', payload: clisLocal },
+              { id: 'usuarios', payload: usrsLocal },
+              { id: 'gastosFijos', payload: gastosLocal }
+            ]);
+          } else {
+            // Cargar normal desde la nube
+            setProductos(prodsNube);
+            setPedidos(mapaDatos['pedidos'] || []);
+            setClientes(mapaDatos['clientes'] || []);
+            setUsuarios(mapaDatos['usuarios'] || [
+              { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
+            ]);
+            setGastosFijos(mapaDatos['gastosFijos'] ?? 500000);
+          }
         } else {
-          // Migración inicial por única vez desde localStorage si existe
-          const prodsLocal = typeof window !== 'undefined' ? localStorage.getItem('inventario_productos') : null;
-          const pedsLocal = typeof window !== 'undefined' ? localStorage.getItem('inventario_pedidos') : null;
-          const clisLocal = typeof window !== 'undefined' ? localStorage.getItem('inventario_clientes') : null;
-          const usrsLocal = typeof window !== 'undefined' ? localStorage.getItem('inventario_usuarios') : null;
-          const gastosLocal = typeof window !== 'undefined' ? localStorage.getItem('inventario_gastos_fijos') : null;
+          // Si la tabla app_data está completamente vacía, subimos todo lo que tiene esta PC
+          setProductos(prodsLocal);
+          setPedidos(pedsLocal);
+          setClientes(clisLocal);
+          setUsuarios(usrsLocal);
+          setGastosFijos(gastosLocal);
 
-          const initialProductos = prodsLocal ? JSON.parse(prodsLocal) : [];
-          const initialPedidos = pedsLocal ? JSON.parse(pedsLocal) : [];
-          const initialClientes = clisLocal ? JSON.parse(clisLocal) : [];
-          const initialUsuarios = usrsLocal ? JSON.parse(usrsLocal) : [
-            { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
-          ];
-          const initialGastos = gastosLocal ? Number(gastosLocal) : 500000;
-
-          setProductos(initialProductos);
-          setPedidos(initialPedidos);
-          setClientes(initialClientes);
-          setUsuarios(initialUsuarios);
-          setGastosFijos(initialGastos);
-
-          // Subir a Supabase por primera vez
           await supabase.from('app_data').upsert([
-            { id: 'productos', payload: initialProductos },
-            { id: 'pedidos', payload: initialPedidos },
-            { id: 'clientes', payload: initialClientes },
-            { id: 'usuarios', payload: initialUsuarios },
-            { id: 'gastosFijos', payload: initialGastos }
+            { id: 'productos', payload: prodsLocal },
+            { id: 'pedidos', payload: pedsLocal },
+            { id: 'clientes', payload: clisLocal },
+            { id: 'usuarios', payload: usrsLocal },
+            { id: 'gastosFijos', payload: gastosLocal }
           ]);
         }
       } catch (err) {
-        console.error('Excepción al conectar con Supabase:', err);
+        console.error('Excepción al inicializar datos:', err);
       } finally {
         setSincronizando(false);
       }
     }
 
-    cargarDatosNube();
+    inicializarDatos();
   }, []);
 
-  // Función genérica para guardar cambios en Supabase y mantener respaldo local
+  // Guardar en Supabase y localStorage simultáneamente
   const guardarEnNubeYLocal = async (clave: string, datos: any) => {
     try {
       if (typeof window !== 'undefined') {
@@ -191,11 +204,10 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         { id: clave, payload: datos, updated_at: new Date().toISOString() }
       ]);
     } catch (err) {
-      console.error(`Error al sincronizar ${clave} con Supabase:`, err);
+      console.error(`Error al sincronizar ${clave}:`, err);
     }
   };
 
-  // Autenticación de rol de usuario
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) {
@@ -212,10 +224,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   }, [usuarios]);
 
   const agregarUsuario = (nuevoUsuario: Omit<UsuarioSistema, 'id'>) => {
-    const usuarioCompleto: UsuarioSistema = {
-      ...nuevoUsuario,
-      id: `USR-${Date.now()}`
-    };
+    const usuarioCompleto: UsuarioSistema = { ...nuevoUsuario, id: `USR-${Date.now()}` };
     const actualizados = [usuarioCompleto, ...usuarios];
     setUsuarios(actualizados);
     guardarEnNubeYLocal('usuarios', actualizados);
@@ -260,19 +269,13 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   };
 
   const actualizarProductoCompleto = (productoActualizado: Producto) => {
-    const actualizados = productos.map(p => {
-      if (p.id === productoActualizado.id) {
-        return { ...p, ...productoActualizado };
-      }
-      return p;
-    });
+    const actualizados = productos.map(p => p.id === productoActualizado.id ? { ...p, ...productoActualizado } : p);
     setProductos(actualizados);
     guardarEnNubeYLocal('productos', actualizados);
   };
 
   const importarOActualizarProductosMasivo = (nuevosDatos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => {
     let listaModificada = [...productos];
-
     nuevosDatos.forEach(item => {
       const nombreLimpio = item.nombre.trim().toLowerCase();
       const indiceExistente = listaModificada.findIndex(p => p.nombre.trim().toLowerCase() === nombreLimpio);
@@ -287,11 +290,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           proveedorPredeterminado: item.proveedor || prodActual.proveedorPredeterminado
         };
       } else {
-        const prefijo = 'PRD';
-        const codigoAutomatico = `${prefijo}-${Math.floor(1000 + Math.random() * 9000)}`;
         listaModificada.unshift({
           id: `PROD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          codigo: codigoAutomatico,
+          codigo: `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
           nombre: item.nombre,
           categoria: item.categoria || 'Áridos',
           precio: item.precio || 0,
@@ -316,17 +317,14 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     let nuevosClientes = [...clientes];
     if (!clienteExistente) {
       clienteId = `CLI-${Date.now().toString().slice(-4)}`;
-      const nuevoCliente: Cliente = {
+      nuevosClientes.push({
         id: clienteId,
         nombre: nuevoPedidoData.nombreCliente,
         telefono: nuevoPedidoData.telefonoCliente,
         direccion: nuevoPedidoData.direccionEntrega,
-      };
-      nuevosClientes.push(nuevoCliente);
+      });
       setClientes(nuevosClientes);
       guardarEnNubeYLocal('clientes', nuevosClientes);
-    } else {
-      clienteId = clienteExistente.id;
     }
 
     const nroPedido = `#${Math.floor(100 + Math.random() * 900)}`;
@@ -341,10 +339,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     const nuevosProductos = productos.map(p => {
       const itemEncontrado = nuevoPedido.items.find(i => i.productoId === p.id);
       if (itemEncontrado) {
-        return {
-          ...p,
-          stockActual: Math.max(0, Number(p.stockActual) - Number(itemEncontrado.cantidad))
-        };
+        return { ...p, stockActual: Math.max(0, Number(p.stockActual) - Number(itemEncontrado.cantidad)) };
       }
       return p;
     });
@@ -387,13 +382,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         const nuevosItems = ped.items.map(item => {
           if (item.productoId === productoId && item.acopio) {
             const pendienteActual = item.acopio.cantidadPendienteRetiro;
-            const nuevaCantidadPendiente = Math.max(0, pendienteActual - cantidadRetirada);
             return {
               ...item,
-              acopio: {
-                ...item.acopio,
-                cantidadPendienteRetiro: nuevaCantidadPendiente
-              }
+              acopio: { ...item.acopio, cantidadPendienteRetiro: Math.max(0, pendienteActual - cantidadRetirada) }
             };
           }
           return item;
@@ -417,12 +408,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     const actualizados = productos.map(p => {
       const itemEncontrado = itemsCompra.find(ic => String(ic.productoId).trim() === String(p.id).trim());
       if (itemEncontrado) {
-        const stockActualNum = Number(p.stockActual) || 0;
-        const cantidadRecibidaNum = Number(itemEncontrado.cantidad) || 0;
-        return {
-          ...p,
-          stockActual: stockActualNum + cantidadRecibidaNum
-        };
+        return { ...p, stockActual: (Number(p.stockActual) || 0) + (Number(itemEncontrado.cantidad) || 0) };
       }
       return p;
     });
