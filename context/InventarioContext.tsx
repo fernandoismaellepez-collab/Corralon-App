@@ -113,98 +113,99 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
   );
 
-  // Cargar datos de Supabase y asegurar respaldo inteligente
   useEffect(() => {
-    async function inicializarDatos() {
+    async function inicializarDatosYMigrar() {
       try {
+        // 1. Leer de localStorage local de esta PC primero
+        let prodsLocal = [];
+        let pedsLocal = [];
+        let clisLocal = [];
+        let usrsLocal = [];
+        let gastosLocal = 500000;
+
+        if (typeof window !== 'undefined') {
+          try {
+            prodsLocal = JSON.parse(localStorage.getItem('inventario_productos') || localStorage.getItem('corralon_productos') || '[]');
+            pedsLocal = JSON.parse(localStorage.getItem('inventario_pedidos') || localStorage.getItem('corralon_pedidos') || '[]');
+            clisLocal = JSON.parse(localStorage.getItem('inventario_clientes') || localStorage.getItem('corralon_clientes') || '[]');
+            usrsLocal = JSON.parse(localStorage.getItem('inventario_usuarios') || localStorage.getItem('corralon_usuarios') || '[]');
+            gastosLocal = Number(localStorage.getItem('inventario_gastos_fijos') || localStorage.getItem('corralon_gastos_fijos') || '500000');
+          } catch (e) {
+            console.error('Error leyendo localstorage:', e);
+          }
+        }
+
+        // 2. Intentar leer de Supabase
         const { data, error } = await supabase.from('app_data').select('*');
 
         if (error) {
           console.error('Error al conectar con Supabase:', error);
+          setProductos(prodsLocal);
+          setPedidos(pedsLocal);
+          setClientes(clisLocal);
+          setUsuarios(usrsLocal.length > 0 ? usrsLocal : [{ id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }]);
+          setGastosFijos(gastosLocal);
           setSincronizando(false);
           return;
         }
 
-        // Obtener lo que hay en localStorage de esta PC por si acaso
-        const prodsLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_productos') || '[]') : [];
-        const pedsLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_pedidos') || '[]') : [];
-        const clisLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_clientes') || '[]') : [];
-        const usrsLocal = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('inventario_usuarios') || '[]') : [];
-        const gastosLocal = typeof window !== 'undefined' ? Number(localStorage.getItem('inventario_gastos_fijos') || '500000') : 500000;
-
+        const mapaNube: Record<string, any> = {};
         if (data && data.length > 0) {
-          const mapaDatos: Record<string, any> = {};
           data.forEach((row: any) => {
-            mapaDatos[row.id] = row.payload;
+            mapaNube[row.id] = row.payload;
           });
+        }
 
-          // Si esta PC tiene datos locales y la nube está vacía o tiene menos, forzamos subida desde esta PC
-          const prodsNube = mapaDatos['productos'] || [];
-          if (prodsLocal.length > 0 && prodsNube.length === 0) {
-            setProductos(prodsLocal);
-            setPedidos(pedsLocal);
-            setClientes(clisLocal);
-            setUsuarios(usrsLocal);
-            setGastosFijos(gastosLocal);
+        // 3. Validación robusta con Array.isArray para evitar el falso positivo del array vacío []
+        const nubeProdsValidos = Array.isArray(mapaNube['productos']) && mapaNube['productos'].length > 0;
+        const nubePedsValidos = Array.isArray(mapaNube['pedidos']) && mapaNube['pedidos'].length > 0;
+        const nubeClisValidos = Array.isArray(mapaNube['clientes']) && mapaNube['clientes'].length > 0;
 
-            await supabase.from('app_data').upsert([
-              { id: 'productos', payload: prodsLocal },
-              { id: 'pedidos', payload: pedsLocal },
-              { id: 'clientes', payload: clisLocal },
-              { id: 'usuarios', payload: usrsLocal },
-              { id: 'gastosFijos', payload: gastosLocal }
-            ]);
-          } else {
-            // Cargar normal desde la nube
-            setProductos(prodsNube);
-            setPedidos(mapaDatos['pedidos'] || []);
-            setClientes(mapaDatos['clientes'] || []);
-            setUsuarios(mapaDatos['usuarios'] || [
-              { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
-            ]);
-            setGastosFijos(mapaDatos['gastosFijos'] ?? 500000);
-          }
-        } else {
-          // Si la tabla app_data está completamente vacía, subimos todo lo que tiene esta PC
-          setProductos(prodsLocal);
-          setPedidos(pedsLocal);
-          setClientes(clisLocal);
-          setUsuarios(usrsLocal);
-          setGastosFijos(gastosLocal);
+        const productosFinales = nubeProdsValidos ? mapaNube['productos'] : prodsLocal;
+        const pedidosFinales = nubePedsValidos ? mapaNube['pedidos'] : pedsLocal;
+        const clientesFinales = nubeClisValidos ? mapaNube['clientes'] : clisLocal;
+        const usuariosFinales = (Array.isArray(mapaNube['usuarios']) && mapaNube['usuarios'].length > 0) ? mapaNube['usuarios'] : (usrsLocal.length > 0 ? usrsLocal : [
+          { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
+        ]);
+        const gastosFinales = mapaNube['gastosFijos'] ?? gastosLocal;
 
+        setProductos(productosFinales);
+        setPedidos(pedidosFinales);
+        setClientes(clientesFinales);
+        setUsuarios(usuariosFinales);
+        setGastosFijos(gastosFinales);
+
+        // 4. Si la nube no tenía datos válidos pero esta PC sí los tiene en local, subimos los datos locales a Supabase de inmediato
+        if (!nubeProdsValidos && prodsLocal.length > 0) {
           await supabase.from('app_data').upsert([
             { id: 'productos', payload: prodsLocal },
             { id: 'pedidos', payload: pedsLocal },
             { id: 'clientes', payload: clisLocal },
-            { id: 'usuarios', payload: usrsLocal },
-            { id: 'gastosFijos', payload: gastosLocal }
+            { id: 'usuarios', payload: usuariosFinales },
+            { id: 'gastosFijos', payload: gastosFinales }
           ]);
         }
+
       } catch (err) {
-        console.error('Excepción al inicializar datos:', err);
+        console.error('Excepción al sincronizar:', err);
       } finally {
         setSincronizando(false);
       }
     }
 
-    inicializarDatos();
+    inicializarDatosYMigrar();
   }, []);
 
-  // Guardar en Supabase y localStorage simultáneamente
   const guardarEnNubeYLocal = async (clave: string, datos: any) => {
     try {
       if (typeof window !== 'undefined') {
-        if (typeof datos === 'number' || typeof datos === 'string') {
-          localStorage.setItem(`inventario_${clave}`, String(datos));
-        } else {
-          localStorage.setItem(`inventario_${clave}`, JSON.stringify(datos));
-        }
+        localStorage.setItem(`inventario_${clave}`, typeof datos === 'object' ? JSON.stringify(datos) : String(datos));
       }
       await supabase.from('app_data').upsert([
         { id: clave, payload: datos, updated_at: new Date().toISOString() }
       ]);
     } catch (err) {
-      console.error(`Error al sincronizar ${clave}:`, err);
+      console.error(`Error al guardar ${clave}:`, err);
     }
   };
 
