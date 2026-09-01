@@ -11,7 +11,8 @@ import {
   CheckCircle,
   AlertTriangle,
   MessageCircle,
-  Share2
+  Share2,
+  Printer
 } from 'lucide-react';
 import { useInventario, ItemPedido, Pedido, Cliente } from '@/context/InventarioContext';
 
@@ -241,6 +242,103 @@ export default function PedidosPage() {
     setTimeout(() => setCopiadoId(null), 2500);
   };
 
+  const imprimirComprobante = (p: Pedido) => {
+    const ventanaImpresion = window.open('', '_blank');
+    if (!ventanaImpresion) return;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Comprobante - ZETA CORRALÓN (#${p.nroPedido})</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #111; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #ea580c; padding-bottom: 15px; margin-bottom: 20px; }
+            .logo-area h1 { margin: 0; font-size: 26px; color: #ea580c; font-weight: 900; letter-spacing: 0.5px; }
+            .logo-area p { margin: 3px 0; font-size: 11px; color: #444; }
+            .ticket-info { text-align: right; }
+            .ticket-info h2 { margin: 0; font-size: 16px; color: #333; }
+            .ticket-info p { margin: 3px 0; font-size: 12px; color: #666; }
+            .section-title { font-size: 13px; font-weight: bold; background: #f3f4f6; padding: 6px 10px; margin-top: 15px; margin-bottom: 10px; border-left: 4px solid #ea580c; text-transform: uppercase; }
+            .info-grid { font-size: 12px; margin-bottom: 15px; line-height: 1.5; }
+            .info-grid p { margin: 3px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; font-size: 12px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
+            th { background-color: #f9fafb; font-weight: bold; color: #374151; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .total-box { text-align: right; font-size: 16px; font-weight: bold; margin-top: 15px; color: #111; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 60px; font-size: 11px; }
+            .sig-line { width: 40%; border-top: 1px solid #333; text-align: center; padding-top: 5px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-area">
+              <h1>ZETA CORRALÓN</h1>
+              <p><strong>Dirección:</strong> Av. Pres. Juan Domingo Perón 4275, Derqui</p>
+              <p><strong>WhatsApp / Tel:</strong> 11 6830 4581</p>
+              <p><strong>Medios de pago:</strong> Efectivo, Transferencia, Mercado Pago, MODO, Tarjetas</p>
+            </div>
+            <div class="ticket-info">
+              <h2>COMPROBANTE DE VENTA</h2>
+              <p><strong>N° Pedido:</strong> #${p.nroPedido}</p>
+              <p><strong>Fecha:</strong> ${p.fecha}</p>
+            </div>
+          </div>
+
+          <div class="section-title">Datos del Cliente</div>
+          <div class="info-grid">
+            <p><strong>Cliente:</strong> ${p.nombreCliente || 'Consumidor Final'}</p>
+            <p><strong>Teléfono:</strong> ${p.telefonoCliente || 'No especificado'}</p>
+            <p><strong>Dirección de Entrega:</strong> ${p.direccionEntrega || 'Retiro en local'}</p>
+            <p><strong>Camión con Grúa:</strong> ${p.requiereGrua || 'NO'}</p>
+            <p><strong>Estado:</strong> ${p.estado.toUpperCase()}</p>
+          </div>
+
+          <div class="section-title">Detalle de Productos del Pedido</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th class="text-center">Cant.</th>
+                <th class="text-right">Precio Unit.</th>
+                <th class="text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${p.items.map((item: any) => `
+                <tr>
+                  <td>${item.codigo || 'PRD'}</td>
+                  <td>${item.nombre}</td>
+                  <td class="text-center">${item.cantidad}</td>
+                  <td class="text-right">$${(item.precioUnitario || 0).toLocaleString('es-AR')}</td>
+                  <td class="text-right">$${((item.precioUnitario || 0) * item.cantidad).toLocaleString('es-AR')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="total-box">
+            Monto Total: $${p.total.toLocaleString('es-AR')}
+          </div>
+
+          <div class="signatures">
+            <div class="sig-line">Firma y Aclaración (Caja / Administración)</div>
+            <div class="sig-line">Firma del Cliente</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    ventanaImpresion.document.write(html);
+    ventanaImpresion.document.close();
+    setTimeout(() => {
+      ventanaImpresion.print();
+    }, 300);
+  };
+
   const pedidosFiltrados = pedidos.filter((p: any) => {
     const coincideBusq = (p.nombreCliente || '').toLowerCase().includes(busqueda.toLowerCase()) || 
                          (p.nroPedido || '').toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -398,6 +496,15 @@ export default function PedidosPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => imprimirComprobante(p)}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Imprimir comprobante oficial de venta"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-amber-400" />
+                            Imprimir
+                          </button>
+
                           <button
                             onClick={() => copiarLinkSeguimiento(p)}
                             className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
