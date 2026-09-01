@@ -33,78 +33,81 @@ export default function VentasPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Comprobante de Venta / Pedido Finalizado - ${pedido.nroPedido}</title>
+        <title>Comprobante de Venta - ZETA CORRALÓN (${pedido.nroPedido})</title>
         <meta charset="utf-8" />
         <style>
-          body { font-family: Arial, sans-serif; color: #000; margin: 0; padding: 20px; font-size: 14px; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
-          .company h1 { margin: 0; font-size: 20px; }
-          .company p { margin: 2px 0; color: #555; font-size: 12px; }
+          body { font-family: Arial, sans-serif; color: #111; margin: 0; padding: 20px; font-size: 14px; }
+          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #ea580c; padding-bottom: 15px; margin-bottom: 20px; }
+          .logo-area h1 { margin: 0; font-size: 26px; color: #ea580c; font-weight: 900; letter-spacing: 0.5px; }
+          .logo-area p { margin: 3px 0; font-size: 11px; color: #444; }
           .invoice-info { text-align: right; }
-          .invoice-info h2 { margin: 0; font-size: 18px; color: #333; }
-          .invoice-info p { margin: 2px 0; font-size: 12px; }
+          .invoice-info h2 { margin: 0; font-size: 16px; color: #333; }
+          .invoice-info p { margin: 3px 0; font-size: 12px; color: #666; }
           .section { margin-bottom: 20px; }
-          .section-title { font-weight: bold; background: #eee; padding: 5px 10px; margin-bottom: 10px; font-size: 13px; text-transform: uppercase; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 12px; }
-          th { background: #f4f4f4; }
+          .section-title { font-size: 13px; font-weight: bold; background: #f3f4f6; padding: 6px 10px; margin-top: 15px; margin-bottom: 10px; border-left: 4px solid #ea580c; text-transform: uppercase; }
+          .info-grid { font-size: 12px; margin-bottom: 15px; line-height: 1.5; }
+          .info-grid p { margin: 3px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; font-size: 12px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
+          th { background-color: #f9fafb; font-weight: bold; color: #374151; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
-          .footer { margin-top: 50px; display: flex; justify-content: space-between; }
-          .signature-box { width: 40%; border-top: 1px solid #000; text-align: center; padding-top: 5px; font-size: 12px; }
+          .total-box { text-align: right; font-size: 16px; font-weight: bold; margin-top: 15px; color: #111; }
+          .footer { margin-top: 60px; display: flex; justify-content: space-between; font-size: 11px; }
+          .signature-box { width: 40%; border-top: 1px solid #333; text-align: center; padding-top: 5px; }
           @media print { body { padding: 0; } }
         </style>
       </head>
       <body>
         <div class="header">
-          <div class="company">
-            <h1>Corralón / Materiales</h1>
-            <p>Comprobante de Venta Finalizada</p>
+          <div class="logo-area">
+            <h1>ZETA CORRALÓN</h1>
+            <p><strong>Dirección:</strong> Av. Pres. Juan Domingo Perón 4275, Derqui</p>
+            <p><strong>WhatsApp / Tel:</strong> 11 6830 4581</p>
+            <p><strong>Medios de pago:</strong> Efectivo, Transferencia, Mercado Pago, MODO, Tarjetas</p>
           </div>
           <div class="invoice-info">
-            <h2>VENTA / PEDIDO FINALIZADO</h2>
+            <h2>COMPROBANTE DE VENTA</h2>
             <p><strong>N° Pedido:</strong> ${pedido.nroPedido}</p>
             <p><strong>Fecha/Hora:</strong> ${pedido.fecha}</p>
           </div>
         </div>
 
-        <div class="section">
-          <div class="section-title">Datos del Cliente</div>
-          <p><strong>Cliente:</strong> ${pedido.nombreCliente}</p>
+        <div class="section-title">Datos del Cliente</div>
+        <div class="info-grid">
+          <p><strong>Cliente:</strong> ${pedido.nombreCliente || 'Consumidor Final'}</p>
           <p><strong>Teléfono:</strong> ${pedido.telefonoCliente || 'No especificado'}</p>
-          <p><strong>Dirección de Entrega:</strong> ${pedido.direccionEntrega}</p>
+          <p><strong>Dirección de Entrega:</strong> ${pedido.direccionEntrega || 'Retiro en local'}</p>
           <p><strong>Camión con Grúa:</strong> ${pedido.requiereGrua === 'SI' ? 'SÍ' : 'NO'}</p>
           <p><strong>Estado:</strong> FINALIZADO</p>
         </div>
 
-        <div class="section">
-          <div class="section-title">Detalle de Productos Entregados</div>
-          <table>
-            <thead>
+        <div class="section-title">Detalle de Productos Entregados</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th class="text-center">Cant.</th>
+              <th class="text-right">Precio Unit.</th>
+              <th class="text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pedido.items.map(item => `
               <tr>
-                <th>Código</th>
-                <th>Producto</th>
-                <th class="text-center">Cant.</th>
-                <th class="text-right">Precio Unit.</th>
-                <th class="text-right">Subtotal</th>
+                <td>${item.codigo || 'PRD'}</td>
+                <td>${item.nombre}</td>
+                <td class="text-center">${item.cantidad}</td>
+                <td class="text-right">$${(item.precioUnitario || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="text-right">$${((item.precioUnitario || 0) * item.cantidad).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${pedido.items.map(item => `
-                <tr>
-                  <td>${item.codigo}</td>
-                  <td>${item.nombre}</td>
-                  <td class="text-center">${item.cantidad}</td>
-                  <td class="text-right">$${item.precioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td class="text-right">$${(item.precioUnitario * item.cantidad).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+            `).join('')}
+          </tbody>
+        </table>
 
-        <div style="text-align: right; margin-top: 15px; font-size: 16px;">
-          <strong>Monto Total Facturado: $${pedido.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+        <div class="total-box">
+          Monto Total Facturado: $${pedido.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
         </div>
 
         <div class="footer">
