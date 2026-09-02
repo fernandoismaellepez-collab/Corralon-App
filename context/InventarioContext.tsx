@@ -333,7 +333,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       fecha: new Date().toISOString().split('T')[0],
     };
 
-    // Descuento de stock inteligente para fracciones (ej. Arena x 1/2 mt descuenta 0.5 del stock principal)
+    // Descuento de stock inteligente para áridos y bolsitas fraccionadas (cemento, cal, plasticor)
     const nuevosProductos = productos.map(p => {
       let cantidadADescontar = 0;
 
@@ -341,7 +341,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         const nombreItemLower = item.nombre.toLowerCase();
         const nombreProdLower = p.nombre.toLowerCase();
 
-        // Coincidencia exacta por ID
+        // 1. Coincidencia exacta por ID de producto
         if (item.productoId === p.id) {
           if (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) {
             cantidadADescontar += Number(item.cantidad) * 0.5;
@@ -349,9 +349,22 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
             cantidadADescontar += Number(item.cantidad);
           }
         } 
-        // Si venden "Arena x 1/2 mt" independiente, descontamos 0.5 del producto "Arena m3" principal
-        else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
+        // 2. Fracciones de áridos independientes (ej. Arena x 1/2 mt descuenta 0.5 de Arena m3)
+        else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('bolsita')) {
           cantidadADescontar += Number(item.cantidad) * 0.5;
+        }
+        else if (nombreItemLower.includes('piedra') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('piedra') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
+          cantidadADescontar += Number(item.cantidad) * 0.5;
+        }
+        // 3. Bolsitas fraccionadas de cemento, cal o plasticor (1 bolsa grande = 3 bolsitas / baldes -> rinde 0.33 por bolsita)
+        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('balde')) {
+          cantidadADescontar += Number(item.cantidad) * (1 / 3);
+        }
+        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cal') && nombreProdLower.includes('cal') && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('balde')) {
+          cantidadADescontar += Number(item.cantidad) * (1 / 3);
+        }
+        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && (nombreItemLower.includes('plasticor') || nombreItemLower.includes('plasti')) && (nombreProdLower.includes('plasticor') || nombreProdLower.includes('plasti')) && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('balde')) {
+          cantidadADescontar += Number(item.cantidad) * (1 / 3);
         }
       });
 
@@ -387,8 +400,16 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
                 } else {
                   cantidadADevolver = Number(item.cantidad);
                 }
-              } else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
+              } else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('bolsita')) {
                 cantidadADevolver = Number(item.cantidad) * 0.5;
+              } else if (nombreItemLower.includes('piedra') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('piedra') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
+                cantidadADevolver = Number(item.cantidad) * 0.5;
+              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('bolsita')) {
+                cantidadADevolver = Number(item.cantidad) * (1 / 3);
+              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cal') && nombreProdLower.includes('cal') && !nombreProdLower.includes('bolsita')) {
+                cantidadADevolver = Number(item.cantidad) * (1 / 3);
+              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && (nombreItemLower.includes('plasticor') || nombreItemLower.includes('plasti')) && (nombreProdLower.includes('plasticor') || nombreProdLower.includes('plasti')) && !nombreProdLower.includes('bolsita')) {
+                cantidadADevolver = Number(item.cantidad) * (1 / 3);
               }
 
               if (cantidadADevolver > 0) {
