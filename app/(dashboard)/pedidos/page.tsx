@@ -83,7 +83,7 @@ export default function PedidosPage() {
     if (!productoIdTemp) return;
     const prod = productos.find((p: any) => p.id === productoIdTemp);
     if (!prod) return;
-    const cant = parseFloat(String(cantidadTemp)) || 1;
+    const cant = parseFloat(String(cantidadTemp).replace(',', '.')) || 1;
     if (cant <= 0) return;
 
     const existeIndex = itemsPedido.findIndex(i => i.productoId === prod.id);
@@ -806,12 +806,16 @@ export default function PedidosPage() {
                   </div>
                   <div className="w-28">
                     <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
+                      type="text"
+                      inputMode="decimal"
                       value={cantidadTemp}
-                      onChange={(e) => setCantidadTemp(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-amber-500"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || !isNaN(Number(val))) {
+                          setCantidadTemp(val);
+                        }
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-amber-500 font-mono"
                       placeholder="Cant"
                     />
                   </div>
@@ -921,13 +925,16 @@ export default function PedidosPage() {
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-300">Cantidad que retira ahora:</label>
               <input
-                type="number"
-                step="0.1"
-                min="0.1"
-                max={itemAcopioSeleccionado.acopio?.cantidadPendienteRetiro || 1}
+                type="text"
+                inputMode="decimal"
                 value={cantidadRetiroTemp}
-                onChange={(e) => setCantidadRetiroTemp(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500 font-bold"
+                onChange={(e) => {
+                  const val = e.target.value.replace(',', '.');
+                  if (val === '' || !isNaN(Number(val))) {
+                    setCantidadRetiroTemp(val);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500 font-bold font-mono"
               />
             </div>
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
@@ -941,7 +948,7 @@ export default function PedidosPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const cantRetiroNum = parseFloat(String(cantidadRetiroTemp)) || 0;
+                  const cantRetiroNum = parseFloat(String(cantidadRetiroTemp).replace(',', '.')) || 0;
                   if (cantRetiroNum > 0) {
                     actualizarRetiroAcopio(pedidoSeleccionadoAcopio.id, itemAcopioSeleccionado.productoId, cantRetiroNum);
                     setModalAcopioAbierto(false);
