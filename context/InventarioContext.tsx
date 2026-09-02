@@ -116,7 +116,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     async function inicializarDatosYMigrar() {
       try {
-        // 1. Leer de localStorage local de esta PC primero
         let prodsLocal = [];
         let pedsLocal = [];
         let clisLocal = [];
@@ -135,7 +134,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           }
         }
 
-        // 2. Intentar leer de Supabase
         const { data, error } = await supabase.from('app_data').select('*');
 
         if (error) {
@@ -156,7 +154,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           });
         }
 
-        // 3. Validación robusta con Array.isArray para evitar el falso positivo del array vacío []
         const nubeProdsValidos = Array.isArray(mapaNube['productos']) && mapaNube['productos'].length > 0;
         const nubePedsValidos = Array.isArray(mapaNube['pedidos']) && mapaNube['pedidos'].length > 0;
         const nubeClisValidos = Array.isArray(mapaNube['clientes']) && mapaNube['clientes'].length > 0;
@@ -175,7 +172,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         setUsuarios(usuariosFinales);
         setGastosFijos(gastosFinales);
 
-        // 4. Si la nube no tenía datos válidos pero esta PC sí los tiene en local, subimos los datos locales a Supabase de inmediato
         if (!nubeProdsValidos && prodsLocal.length > 0) {
           await supabase.from('app_data').upsert([
             { id: 'productos', payload: prodsLocal },
@@ -337,10 +333,30 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       fecha: new Date().toISOString().split('T')[0],
     };
 
+    // Descuento de stock inteligente para fracciones (ej. Arena x 1/2 mt descuenta 0.5 del stock principal)
     const nuevosProductos = productos.map(p => {
-      const itemEncontrado = nuevoPedido.items.find(i => i.productoId === p.id);
-      if (itemEncontrado) {
-        return { ...p, stockActual: Math.max(0, Number(p.stockActual) - Number(itemEncontrado.cantidad)) };
+      let cantidadADescontar = 0;
+
+      nuevoPedido.items.forEach(item => {
+        const nombreItemLower = item.nombre.toLowerCase();
+        const nombreProdLower = p.nombre.toLowerCase();
+
+        // Coincidencia exacta por ID
+        if (item.productoId === p.id) {
+          if (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) {
+            cantidadADescontar += Number(item.cantidad) * 0.5;
+          } else {
+            cantidadADescontar += Number(item.cantidad);
+          }
+        } 
+        // Si venden "Arena x 1/2 mt" independiente, descontamos 0.5 del producto "Arena m3" principal
+        else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
+          cantidadADescontar += Number(item.cantidad) * 0.5;
+        }
+      });
+
+      if (cantidadADescontar > 0) {
+        return { ...p, stockActual: Math.max(0, Number(p.stockActual) - cantidadADescontar) };
       }
       return p;
     });
@@ -360,9 +376,26 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       if (ped.id === id) {
         if (estado === 'Cancelado' && ped.estado !== 'Cancelado') {
           ped.items.forEach(item => {
-            productosModificados = productosModificados.map(p => 
-              p.id === item.productoId ? { ...p, stockActual: Number(p.stockActual) + Number(item.cantidad) } : p
-            );
+            const nombreItemLower = item.nombre.toLowerCase();
+            productosModificados = productosModificados.map(p => {
+              const nombreProdLower = p.nombre.toLowerCase();
+              let cantidadADevolver = 0;
+
+              if (p.id === item.productoId) {
+                if (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) {
+                  cantidadADevolver = Number(item.cantidad) * 0.5;
+                } else {
+                  cantidadADevolver = Number(item.cantidad);
+                }
+              } else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
+                cantidadADevolver = Number(item.cantidad) * 0.5;
+              }
+
+              if (cantidadADevolver > 0) {
+                return { ...p, stockActual: Number(p.stockActual) + cantidadADevolver };
+              }
+              return p;
+            });
           });
         }
         return { ...ped, estado };
