@@ -46,11 +46,11 @@ export default function PedidosPage() {
   
   const [itemsPedido, setItemsPedido] = useState<ItemPedido[]>([]);
   const [productoIdTemp, setProductoIdTemp] = useState('');
-  const [cantidadTemp, setCantidadTemp] = useState(1);
+  const [cantidadTemp, setCantidadTemp] = useState<number | string>(1);
   const [modalAcopioAbierto, setModalAcopioAbierto] = useState(false);
   const [pedidoSeleccionadoAcopio, setPedidoSeleccionadoAcopio] = useState<Pedido | null>(null);
   const [itemAcopioSeleccionado, setItemAcopioSeleccionado] = useState<ItemPedido | null>(null);
-  const [cantidadRetiroTemp, setCantidadRetiroTemp] = useState(1);
+  const [cantidadRetiroTemp, setCantidadRetiroTemp] = useState<number | string>(1);
   const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false);
   const [pedidoEnEdicion, setPedidoEnEdicion] = useState<Pedido | null>(null);
   const [itemsEditadosTemp, setItemsEditadosTemp] = useState<ItemPedido[]>([]);
@@ -83,7 +83,9 @@ export default function PedidosPage() {
     if (!productoIdTemp) return;
     const prod = productos.find((p: any) => p.id === productoIdTemp);
     if (!prod) return;
-    const cant = Number(cantidadTemp) || 1;
+    const cant = parseFloat(String(cantidadTemp)) || 1;
+    if (cant <= 0) return;
+
     const existeIndex = itemsPedido.findIndex(i => i.productoId === prod.id);
     if (existeIndex >= 0) {
       const nuevos = [...itemsPedido];
@@ -802,12 +804,13 @@ export default function PedidosPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="w-24">
+                  <div className="w-28">
                     <input
                       type="number"
-                      min="1"
+                      step="0.1"
+                      min="0.1"
                       value={cantidadTemp}
-                      onChange={(e) => setCantidadTemp(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setCantidadTemp(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-amber-500"
                       placeholder="Cant"
                     />
@@ -919,10 +922,11 @@ export default function PedidosPage() {
               <label className="block text-xs font-medium text-slate-300">Cantidad que retira ahora:</label>
               <input
                 type="number"
-                min="1"
+                step="0.1"
+                min="0.1"
                 max={itemAcopioSeleccionado.acopio?.cantidadPendienteRetiro || 1}
                 value={cantidadRetiroTemp}
-                onChange={(e) => setCantidadRetiroTemp(parseInt(e.target.value) || 1)}
+                onChange={(e) => setCantidadRetiroTemp(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500 font-bold"
               />
             </div>
@@ -937,8 +941,11 @@ export default function PedidosPage() {
               <button
                 type="button"
                 onClick={() => {
-                  actualizarRetiroAcopio(pedidoSeleccionadoAcopio.id, itemAcopioSeleccionado.productoId, cantidadRetiroTemp);
-                  setModalAcopioAbierto(false);
+                  const cantRetiroNum = parseFloat(String(cantidadRetiroTemp)) || 0;
+                  if (cantRetiroNum > 0) {
+                    actualizarRetiroAcopio(pedidoSeleccionadoAcopio.id, itemAcopioSeleccionado.productoId, cantRetiroNum);
+                    setModalAcopioAbierto(false);
+                  }
                 }}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
               >
