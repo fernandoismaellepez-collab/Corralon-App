@@ -333,7 +333,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       fecha: new Date().toISOString().split('T')[0],
     };
 
-    // Descuento de stock inteligente para áridos y bolsitas fraccionadas (cemento, cal, plasticor)
+    // Descuento de stock inteligente para áridos y bolsas chicas / fraccionadas
     const nuevosProductos = productos.map(p => {
       let cantidadADescontar = 0;
 
@@ -350,20 +350,20 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           }
         } 
         // 2. Fracciones de áridos independientes (ej. Arena x 1/2 mt descuenta 0.5 de Arena m3)
-        else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('bolsita')) {
+        else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('chica')) {
           cantidadADescontar += Number(item.cantidad) * 0.5;
         }
         else if (nombreItemLower.includes('piedra') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('piedra') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
           cantidadADescontar += Number(item.cantidad) * 0.5;
         }
-        // 3. Bolsitas fraccionadas de cemento, cal o plasticor (1 bolsa grande = 3 bolsitas / baldes -> rinde 0.33 por bolsita)
-        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('balde')) {
+        // 3. Bolsas chicas / fraccionadas de cemento, cal o plasticor (1 bolsa grande = 3 chicas -> rinde 0.33 por bolsita)
+        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('chica') && !nombreProdLower.includes('bolsita')) {
           cantidadADescontar += Number(item.cantidad) * (1 / 3);
         }
-        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cal') && nombreProdLower.includes('cal') && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('balde')) {
+        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cal') && nombreProdLower.includes('cal') && !nombreProdLower.includes('chica') && !nombreProdLower.includes('bolsita')) {
           cantidadADescontar += Number(item.cantidad) * (1 / 3);
         }
-        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && (nombreItemLower.includes('plasticor') || nombreItemLower.includes('plasti')) && (nombreProdLower.includes('plasticor') || nombreProdLower.includes('plasti')) && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('balde')) {
+        else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && (nombreItemLower.includes('plasticor') || nombreItemLower.includes('plasti')) && (nombreProdLower.includes('plasticor') || nombreProdLower.includes('plasti')) && !nombreProdLower.includes('chica') && !nombreProdLower.includes('bolsita')) {
           cantidadADescontar += Number(item.cantidad) * (1 / 3);
         }
       });
@@ -400,15 +400,15 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
                 } else {
                   cantidadADevolver = Number(item.cantidad);
                 }
-              } else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('bolsita')) {
+              } else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('chica')) {
                 cantidadADevolver = Number(item.cantidad) * 0.5;
               } else if (nombreItemLower.includes('piedra') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('piedra') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
                 cantidadADevolver = Number(item.cantidad) * 0.5;
-              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('bolsita')) {
+              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('chica')) {
                 cantidadADevolver = Number(item.cantidad) * (1 / 3);
-              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cal') && nombreProdLower.includes('cal') && !nombreProdLower.includes('bolsita')) {
+              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cal') && nombreProdLower.includes('cal') && !nombreProdLower.includes('chica')) {
                 cantidadADevolver = Number(item.cantidad) * (1 / 3);
-              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && (nombreItemLower.includes('plasticor') || nombreItemLower.includes('plasti')) && (nombreProdLower.includes('plasticor') || nombreProdLower.includes('plasti')) && !nombreProdLower.includes('bolsita')) {
+              } else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && (nombreItemLower.includes('plasticor') || nombreItemLower.includes('plasti')) && (nombreProdLower.includes('plasticor') || nombreProdLower.includes('plasti')) && !nombreProdLower.includes('chica')) {
                 cantidadADevolver = Number(item.cantidad) * (1 / 3);
               }
 

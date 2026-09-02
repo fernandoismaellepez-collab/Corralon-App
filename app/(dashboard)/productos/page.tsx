@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, Plus, Search, Filter, Edit, X, Trash2 } from 'lucide-react';
+import { Package, Plus, Search, Filter, Edit, X, Trash2, FileSpreadsheet } from 'lucide-react';
 import { useInventario, Producto } from '@/context/InventarioContext';
 import ImportadorExcel from '@/components/ImportadorExcel';
 
@@ -44,7 +44,6 @@ export default function ProductosPage() {
     if (!formProd.nombre || !formProd.precio) return;
 
     if (productoAEditar) {
-      // 1. Actualizamos datos generales (nombre, categoría, precio, stock mínimo)
       const productoActualizado = {
         ...productoAEditar,
         nombre: formProd.nombre,
@@ -57,7 +56,6 @@ export default function ProductosPage() {
         actualizarProductoCompleto(productoActualizado);
       }
 
-      // 2. Si cambió el stock, gestionamos la diferencia mediante la función de stock
       const nuevoStock = parseInt(formProd.stockActual) || 0;
       const diferencia = nuevoStock - productoAEditar.stockActual;
       if (diferencia !== 0) {
@@ -97,6 +95,27 @@ export default function ProductosPage() {
       alert('Error al procesar el archivo. Verifica las columnas de tu Excel.');
     }
   };
+
+  const exportarStockExcel = () => {
+    const datosAExportar = productosFiltrados;
+
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+    csvContent += "Codigo;Categoria;Nombre;Stock Actual;Precio\n";
+
+    datosAExportar.forEach((p: any) => {
+      const fila = `"${p.codigo || ''}";"${p.categoria || 'General'}";"${p.nombre}";"${p.stockActual}";"$${p.precio}"`;
+      csvContent += fila + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `stock_zeta_corralon_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const productosFiltrados = productos.filter((p: any) => {
     const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.codigo.toLowerCase().includes(busqueda.toLowerCase());
     const categoriaProd = (p as any).categoria || 'Áridos';
@@ -106,7 +125,7 @@ export default function ProductosPage() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* PANEL SUPERIOR DE CARGA MASIVA Y RESETEO */}
+      {/* PANEL SUPERIOR DE CARGA MASIVA, EXPORTACIÓN Y RESETEO */}
       <div className="bg-slate-900 border border-amber-500/30 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -114,11 +133,19 @@ export default function ProductosPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">Panel de Carga Masiva y Base de Datos</h2>
-            <p className="text-xs text-slate-400">Importa tus productos desde Excel o limpia el sistema por completo.</p>
+            <p className="text-xs text-slate-400">Importa, exporta tu stock o limpia el sistema por completo.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <ImportadorExcel onImportar={procesarImportacionMasiva} />
+          
+          <button
+            onClick={exportarStockExcel}
+            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Exportar Stock a Excel
+          </button>
+
           <button 
             onClick={() => { if(confirm('¿Estás seguro de vaciar todo el sistema para cargar productos reales?')) restablecerInventario(); }}
             className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
