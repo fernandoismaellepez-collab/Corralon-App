@@ -13,7 +13,6 @@ import {
   AlertCircle,
   Navigation
 } from 'lucide-react';
-import { Pedido } from '@/context/InventarioContext';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -31,19 +30,19 @@ export default function SeguimientoPedidoPage() {
   const params = useParams();
   const idPedido = params?.id as string;
 
-  const [pedido, setPedido] = useState<Pedido | null>(null);
+  const [pedido, setPedido] = useState<any | null>(null);
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
     setMontado(true);
     if (typeof window !== 'undefined' && idPedido) {
       try {
-        const guardados = localStorage.getItem('inventario_pedidos');
+        const guardados = localStorage.getItem('corralon_pedidos') || localStorage.getItem('inventario_pedidos');
+        
         if (guardados) {
-          const listaPedidos: Pedido[] = JSON.parse(guardados);
+          const listaPedidos: any[] = JSON.parse(guardados);
           const idBuscado = decodeURIComponent(idPedido).trim().toLowerCase();
           
-          // Búsqueda inteligente por ID, número de pedido con o sin el símbolo #
           const encontrado = listaPedidos.find(p => {
             const pId = (p.id || '').toLowerCase();
             const pNro = (p.nroPedido || '').toLowerCase();
@@ -105,7 +104,7 @@ export default function SeguimientoPedidoPage() {
           <div className="inline-flex items-center justify-center p-3 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-2xl mb-1">
             <Building2 className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight">Corralón de Materiales</h1>
+          <h1 className="text-2xl font-black tracking-tight">ZETA CORRALÓN</h1>
           <p className="text-xs text-slate-400 uppercase tracking-widest font-mono">Seguimiento Online de Envío</p>
         </div>
 
@@ -115,6 +114,11 @@ export default function SeguimientoPedidoPage() {
               <span className="text-xs font-mono text-amber-400 uppercase font-bold">Número de Pedido</span>
               <h2 className="text-3xl font-black font-mono text-slate-100 mt-0.5">{pedido.nroPedido}</h2>
               <p className="text-xs text-slate-400 mt-1">Fecha de emisión: {pedido.fecha}</p>
+              {pedido.fechaEntregaPactada && (
+                <p className="text-xs text-purple-300 mt-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-block">
+                  📅 Reprogramación / Acopio pactado: <strong>{pedido.fechaEntregaPactada}</strong>
+                </p>
+              )}
             </div>
             <div>
               <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
@@ -155,11 +159,10 @@ export default function SeguimientoPedidoPage() {
           ) : (
             <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl text-xs text-rose-300 space-y-1">
               <strong className="block font-bold">Este pedido fue cancelado</strong>
-              <p>{pedido.observacionCancelacion || 'Sin observaciones.'}</p>
+              <p>{pedido.observacionCancelacion || 'Sin observaciones de cancelación.'}</p>
             </div>
           )}
 
-          {/* Mapa Interactivo */}
           {(estadoActual === 'en camino' || estadoActual === 'preparado' || estadoActual === 'pendiente') && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
@@ -214,30 +217,42 @@ export default function SeguimientoPedidoPage() {
             </div>
           </div>
 
+          {pedido.observaciones && (
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3.5 rounded-xl text-xs space-y-1">
+              <strong className="block font-bold">Observaciones del Pedido:</strong>
+              <p>{pedido.observaciones}</p>
+            </div>
+          )}
+
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Artículos del Pedido</h3>
             <div className="space-y-2">
-              {pedido.items.map((item, index) => (
+              {(pedido.items || []).map((item: any, index: number) => (
                 <div key={index} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-100">{item.cantidad}x {item.nombre}</span>
                     <span className="text-[10px] text-slate-500 font-mono block">Cód: {item.codigo}</span>
+                    {item.acopio?.esAcopio && (
+                      <span className="text-[10px] text-purple-400 block font-semibold">
+                        📦 Acopio (Pendiente: {item.acopio.cantidadPendienteRetiro})
+                      </span>
+                    )}
                   </div>
                   <span className="font-mono text-emerald-400 font-bold">
-                    ${(item.precioUnitario * item.cantidad).toLocaleString('es-AR')}
+                    ${((item.precioUnitario || 0) * item.cantidad).toLocaleString('es-AR')}
                   </span>
                 </div>
               ))}
             </div>
             <div className="flex justify-between items-center pt-3 border-t border-slate-800 font-bold text-sm">
               <span className="text-slate-400">Total General:</span>
-              <span className="text-emerald-400 text-base font-mono">${pedido.total.toLocaleString('es-AR')}</span>
+              <span className="text-emerald-400 text-base font-mono">${(pedido.total || 0).toLocaleString('es-AR')}</span>
             </div>
           </div>
         </div>
 
         <div className="text-center text-xs text-slate-600">
-          <p>© 2026 Corralón de Materiales. Todos los derechos reservados.</p>
+          <p>© 2026 Zeta Corralón. Todos los derechos reservados.</p>
         </div>
       </div>
     </div>
