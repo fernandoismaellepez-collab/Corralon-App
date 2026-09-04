@@ -7,63 +7,53 @@ import { Building2, AlertCircle } from 'lucide-react';
 function ContenidoSeguimiento() {
   const searchParams = useSearchParams();
   const idBuscado = searchParams.get('id');
-  const dataParam = searchParams.get('data');
 
   const [pedido, setPedido] = useState<any | null>(null);
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
     setMontado(true);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && idBuscado) {
       try {
-        if (dataParam) {
-          const parsedData = JSON.parse(decodeURIComponent(dataParam));
-          setPedido({
-            nroPedido: parsedData.nro || idBuscado,
-            nombreCliente: parsedData.cliente || 'Cliente',
-            estado: parsedData.estado || 'Pendiente',
-            total: parsedData.total || 0,
-            fecha: parsedData.fecha || '',
-            items: parsedData.items || [],
-            direccionEntrega: parsedData.dir || 'Retiro en local',
-            telefonoCliente: parsedData.tel || '',
-            requiereGrua: parsedData.grua || 'NO'
+        const guardados = localStorage.getItem('corralon_pedidos') || localStorage.getItem('inventario_pedidos');
+        
+        if (guardados) {
+          const listaPedidos: any[] = JSON.parse(guardados);
+          const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
+          const querySinHash = queryLimpio.replace('#', '');
+          
+          const encontrado = listaPedidos.find(p => {
+            const pId = String(p.id || '').trim().toLowerCase();
+            const pNro = String(p.nroPedido || p.numero || '').trim().toLowerCase();
+            const pNroSinHash = pNro.replace('#', '');
+
+            return (
+              pId === queryLimpio || 
+              pNro === queryLimpio || 
+              pNroSinHash === querySinHash ||
+              pId === querySinHash
+            );
           });
-          return;
-        }
 
-        if (idBuscado) {
-          const guardados = localStorage.getItem('corralon_pedidos') || localStorage.getItem('inventario_pedidos');
-          if (guardados) {
-            const listaPedidos: any[] = JSON.parse(guardados);
-            const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
-            
-            const encontrado = listaPedidos.find(p => {
-              const pId = String(p.id || '').trim().toLowerCase();
-              const pNro = String(p.nroPedido || p.numero || '').trim().toLowerCase();
-              return pId === queryLimpio || pNro === queryLimpio;
+          if (encontrado) {
+            setPedido({
+              nroPedido: encontrado.nroPedido || encontrado.numero || idBuscado,
+              nombreCliente: encontrado.nombreCliente || encontrado.cliente || 'Cliente',
+              estado: encontrado.estado || 'Pendiente',
+              total: encontrado.total || 0,
+              fecha: encontrado.fecha || '',
+              items: encontrado.items || [],
+              direccionEntrega: encontrado.direccionEntrega || 'Retiro en local',
+              telefonoCliente: encontrado.telefonoCliente || '',
+              requiereGrua: encontrado.requiereGrua || 'NO'
             });
-
-            if (encontrado) {
-              setPedido({
-                nroPedido: encontrado.nroPedido || encontrado.numero || idBuscado,
-                nombreCliente: encontrado.nombreCliente || encontrado.cliente || 'Cliente',
-                estado: encontrado.estado || 'Pendiente',
-                total: encontrado.total || 0,
-                fecha: encontrado.fecha || '',
-                items: encontrado.items || [],
-                direccionEntrega: encontrado.direccionEntrega || 'Retiro en local',
-                telefonoCliente: encontrado.telefonoCliente || '',
-                requiereGrua: encontrado.requiereGrua || 'NO'
-              });
-            }
           }
         }
       } catch (e) {
         console.error('Error al procesar el pedido:', e);
       }
     }
-  }, [idBuscado, dataParam]);
+  }, [idBuscado]);
 
   if (!montado) return null;
 
@@ -76,7 +66,7 @@ function ContenidoSeguimiento() {
           </div>
           <h2 className="text-xl font-bold">Pedido no encontrado</h2>
           <p className="text-slate-400 text-sm">
-            El enlace de seguimiento no es válido o el pedido ya no está disponible.
+            El enlace de seguimiento no es válido o el pedido ya no está disponible en este dispositivo.
           </p>
         </div>
       </div>
@@ -116,7 +106,7 @@ function ContenidoSeguimiento() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
             <div>
               <span className="text-xs font-mono text-amber-400 uppercase font-bold">Número de Pedido</span>
-              <h2 className="text-3xl font-black font-mono text-slate-100 mt-0.5">#{pedido.nroPedido}</h2>
+              <h2 className="text-3xl font-black font-mono text-slate-100 mt-0.5">#{pedido.nroPedido.replace('#', '')}</h2>
               <p className="text-xs text-slate-400 mt-1">Fecha de emisión: {pedido.fecha}</p>
             </div>
             <div>
@@ -176,8 +166,6 @@ function ContenidoSeguimiento() {
               <span className="text-slate-400 block pt-1">📞 {pedido.telefonoCliente || 'Sin teléfono'}</span>
             </div>
           </div>
-
-          {/* CUADRO DE OBSERVACIONES ELIMINADO CORRECTAMENTE */}
 
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Artículos del Pedido</h3>

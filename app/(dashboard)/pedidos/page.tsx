@@ -225,47 +225,23 @@ const enviarWhatsAppPendiente = (pedido: any) => {
       telefonoLimpio = `549${telefonoLimpio}`;
     }
     
-    const idParam = pedido.id || pedido.nroPedido;
-    const datosPedido = encodeURIComponent(JSON.stringify({
-      nro: pedido.nroPedido,
-      cliente: pedido.nombreCliente,
-      estado: pedido.estado,
-      total: pedido.total,
-      fecha: pedido.fecha,
-      items: pedido.items,
-      dir: pedido.direccionEntrega,
-      tel: pedido.telefonoCliente,
-      grua: pedido.requiereGrua,
-      obs: pedido.observaciones
-    }));
-
-    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}&data=${datosPedido}`;
+    const idParam = pedido.id; // Usamos el ID único
+    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
     
+    const nroLimpio = String(pedido.nroPedido || '').replace('#', '');
     const textoMensaje = 
-      `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribimos de parte del corralón para confirmarte que ya ingresamos tu pedido *${pedido.nroPedido}*. 🏗️\n\n` +
+      `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribimos de parte del corralón para confirmarte que ya ingresamos tu pedido *#${nroLimpio}*. 🏗️\n\n` +
       `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
       `¡Muchísimas gracias por confiar en nosotros! 🙌`;
 
     const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
     window.open(urlWhatsApp, '_blank');
   };
+  };
 
   const copiarLinkSeguimiento = (pedido: any) => {
-    const idParam = pedido.id || pedido.nroPedido;
-    const datosPedido = encodeURIComponent(JSON.stringify({
-      nro: pedido.nroPedido,
-      cliente: pedido.nombreCliente,
-      estado: pedido.estado,
-      total: pedido.total,
-      fecha: pedido.fecha,
-      items: pedido.items,
-      dir: pedido.direccionEntrega,
-      tel: pedido.telefonoCliente,
-      grua: pedido.requiereGrua,
-      obs: pedido.observaciones
-    }));
-    
-    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}&data=${datosPedido}`;
+    const idParam = pedido.id; // Usamos el ID único (ej: PED-1788542764249)
+    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
     navigator.clipboard.writeText(urlSeguimiento);
     setCopiadoId(pedido.id);
     setTimeout(() => setCopiadoId(null), 2500);
