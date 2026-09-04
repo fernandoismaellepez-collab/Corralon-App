@@ -377,8 +377,6 @@ export default function PedidosPage() {
     return coincideBusq && coincideEstado;
   });
 
-  if (!montado) return null;
-
   return (
     <div className="p-8 w-full space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
