@@ -8,7 +8,7 @@ export default function PresupuestosPage() {
   const { productos } = useInventario();
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
-  const [itemsPresupuesto, setItemsPresupuesto] = useState<{ productoId: string; nombre: string; precio: number; cantidad: number }[]>([]);
+  const [itemsPresupuesto, setItemsPresupuesto] = useState<{ productoId: string; nombre: string; precio: number; precioPromocion: number; cantidad: number }[]>([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState('');
   const [cantidad, setCantidad] = useState(1);
 
@@ -27,7 +27,13 @@ export default function PresupuestosPage() {
     } else {
       setItemsPresupuesto(prev => [
         ...prev,
-        { productoId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: cant }
+        { 
+          productoId: prod.id, 
+          nombre: prod.nombre, 
+          precio: prod.precio, 
+          precioPromocion: prod.precio, // Por defecto arranca igual al precio de lista
+          cantidad: cant 
+        }
       ]);
     }
     setProductoSeleccionado('');
@@ -38,7 +44,15 @@ export default function PresupuestosPage() {
     setItemsPresupuesto(prev => prev.filter((_, i) => i !== index));
   };
 
-  const totalPresupuesto = itemsPresupuesto.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+  const cambiarPrecioPromocion = (index: number, valor: string) => {
+    const nuevos = [...itemsPresupuesto];
+    const num = parseFloat(valor.replace(',', '.')) || 0;
+    nuevos[index].precioPromocion = num;
+    setItemsPresupuesto(nuevos);
+  };
+
+  const totalPresupuestoLista = itemsPresupuesto.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+  const totalPresupuestoPromocion = itemsPresupuesto.reduce((acc, item) => acc + (item.precioPromocion * item.cantidad), 0);
 
   const enviarWhatsAppPresupuesto = () => {
     if (!telefonoCliente || itemsPresupuesto.length === 0) {
@@ -53,9 +67,10 @@ export default function PresupuestosPage() {
 
     let mensaje = `*PRESUPUESTO - CORRALÓN*\nCliente: ${nombreCliente || 'Consumidor Final'}\n\n*Detalle de materiales:*\n`;
     itemsPresupuesto.forEach(i => {
-      mensaje += `- ${i.cantidad}x ${i.nombre} ($${(i.precio * i.cantidad).toLocaleString('es-AR')})\n`;
+      mensaje += `- ${i.cantidad}x ${i.nombre} (Lista: $${(i.precio * i.cantidad).toLocaleString('es-AR')} | Promo Z: $${(i.precioPromocion * i.cantidad).toLocaleString('es-AR')})\n`;
     });
-    mensaje += `\n*TOTAL ESTIMADO: $${totalPresupuesto.toLocaleString('es-AR')}*\n\n_Presupuesto de carácter informativo, válido por 7 días. No reserva stock._`;
+    mensaje += `\n*TOTAL LISTA: $${totalPresupuestoLista.toLocaleString('es-AR')}*\n`;
+    mensaje += `*TOTAL BENEFICIO Z (PROMO): $${totalPresupuestoPromocion.toLocaleString('es-AR')}*\n\n_Presupuesto de carácter informativo, válido por 7 días. No reserva stock._`;
 
     const url = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
@@ -136,14 +151,20 @@ export default function PresupuestosPage() {
         {/* VISTA PREVIA DEL PRESUPUESTO */}
         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between shadow-xl">
           <div>
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-4 mb-4 gap-4">
               <div>
                 <h3 className="text-xl font-bold text-white">Vista Previa de Cotización</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Cliente: <strong className="text-slate-200">{nombreCliente || 'Consumidor Final'}</strong></p>
               </div>
-              <div className="text-right">
-                <span className="text-xs text-slate-400 block">Total Estimado</span>
-                <span className="text-2xl font-black text-amber-400">${totalPresupuesto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              <div className="flex gap-4">
+                <div className="text-right">
+                  <span className="text-[11px] text-slate-400 block">Total Precio Lista</span>
+                  <span className="text-lg font-bold text-slate-300">${totalPresupuestoLista.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="text-right border-l border-slate-800 pl-4">
+                  <span className="text-[11px] text-amber-400 block font-semibold">Total Beneficio Z</span>
+                  <span className="text-xl font-black text-amber-400">${totalPresupuestoPromocion.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                </div>
               </div>
             </div>
 
@@ -153,8 +174,9 @@ export default function PresupuestosPage() {
                   <tr>
                     <th className="px-4 py-3">Producto</th>
                     <th className="px-4 py-3 text-center">Cant.</th>
-                    <th className="px-4 py-3 text-right">Precio Unit.</th>
-                    <th className="px-4 py-3 text-right">Subtotal</th>
+                    <th className="px-4 py-3 text-right">Precio Lista</th>
+                    <th className="px-4 py-3 text-right">Precio Promo Z</th>
+                    <th className="px-4 py-3 text-right">Subtotal Promo Z</th>
                     <th className="px-4 py-3 text-right">Acción</th>
                   </tr>
                 </thead>
@@ -164,8 +186,17 @@ export default function PresupuestosPage() {
                       <tr key={index} className="hover:bg-slate-800/40">
                         <td className="px-4 py-3 font-medium text-white">{item.nombre}</td>
                         <td className="px-4 py-3 text-center">{item.cantidad}</td>
-                        <td className="px-4 py-3 text-right">${item.precio.toLocaleString('es-AR')}</td>
-                        <td className="px-4 py-3 text-right font-bold text-emerald-400">${(item.precio * item.cantidad).toLocaleString('es-AR')}</td>
+                        <td className="px-4 py-3 text-right text-slate-400 font-mono">${item.precio.toLocaleString('es-AR')}</td>
+                        <td className="px-4 py-3 text-right">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.precioPromocion}
+                            onChange={(e) => cambiarPrecioPromocion(index, e.target.value)}
+                            className="w-24 bg-slate-950 border border-amber-500/40 focus:border-amber-500 text-amber-300 font-bold text-right rounded px-2 py-1 text-xs focus:outline-none font-mono"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-emerald-400 font-mono">${(item.precioPromocion * item.cantidad).toLocaleString('es-AR')}</td>
                         <td className="px-4 py-3 text-right">
                           <button onClick={() => eliminarItem(index)} className="text-slate-400 hover:text-rose-400 cursor-pointer p-1">
                             <Trash2 className="w-4 h-4" />
@@ -175,7 +206,7 @@ export default function PresupuestosPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-16 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-16 text-center text-slate-500">
                         No hay productos agregados en este presupuesto. (Módulo meramente informativo).
                       </td>
                     </tr>
