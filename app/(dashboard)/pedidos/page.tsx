@@ -219,13 +219,28 @@ export default function PedidosPage() {
     };
     setItemsEditadosTemp([...itemsEditadosTemp, nuevoItem]);
   };
-
-  const enviarWhatsAppPendiente = (pedido: any) => {
+const enviarWhatsAppPendiente = (pedido: any) => {
     let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
     if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
       telefonoLimpio = `549${telefonoLimpio}`;
     }
-    const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
+    
+    const idParam = pedido.id || pedido.nroPedido;
+    const datosPedido = encodeURIComponent(JSON.stringify({
+      nro: pedido.nroPedido,
+      cliente: pedido.nombreCliente,
+      estado: pedido.estado,
+      total: pedido.total,
+      fecha: pedido.fecha,
+      items: pedido.items,
+      dir: pedido.direccionEntrega,
+      tel: pedido.telefonoCliente,
+      grua: pedido.requiereGrua,
+      obs: pedido.observaciones
+    }));
+
+    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}&data=${datosPedido}`;
+    
     const textoMensaje = 
       `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribimos de parte del corralón para confirmarte que ya ingresamos tu pedido *${pedido.nroPedido}*. 🏗️\n\n` +
       `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
@@ -235,42 +250,28 @@ export default function PedidosPage() {
     window.open(urlWhatsApp, '_blank');
   };
 
-  const enviarWhatsAppPreparado = (pedido: any) => {
-    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
-    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
-      telefonoLimpio = `549${telefonoLimpio}`;
-    }
-    const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
-    const textoMensaje = 
-      `¡Hola *${pedido.nombreCliente}*! Te escribimos del corralón para avisarte que tu pedido *${pedido.nroPedido}* ya está preparado y saliendo en viaje hacia *${pedido.direccionEntrega}* 🚚📦\n\n` +
-      `¿Querés saber el estado de tu pedido? Ingresá a este link y chequealo en tiempo real:\n${urlSeguimiento}\n\n` +
-      `¡Cualquier cosa avisame! Saludos. 🙌`;
-
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
-    window.open(urlWhatsApp, '_blank');
-  };
-
-  const enviarWhatsAppEntrega = (pedido: any) => {
-    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
-    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
-      telefonoLimpio = `549${telefonoLimpio}`; 
-    }
-    const textoMensaje = 
-      `¡Hola *${pedido.nombreCliente}*! ¿Cómo andás? Te escribo de parte del corralón para avisarte que ya pudimos despachar y entregar tu pedido *${pedido.nroPedido}* en *${pedido.direccionEntrega}* 🚚🏠\n\n` +
-      `Cualquier cosa que necesites o si te quedó faltando algo para la obra, avisanos y lo charlamos. ¡Muchísimas gracias por confiar en nosotros! 🙌`;
-
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
-    window.open(urlWhatsApp, '_blank');
-  };
-
   const copiarLinkSeguimiento = (pedido: any) => {
-    const urlSeguimiento = `${window.location.origin}/seguimiento/${pedido.nroPedido}`;
+    const idParam = pedido.id || pedido.nroPedido;
+    const datosPedido = encodeURIComponent(JSON.stringify({
+      nro: pedido.nroPedido,
+      cliente: pedido.nombreCliente,
+      estado: pedido.estado,
+      total: pedido.total,
+      fecha: pedido.fecha,
+      items: pedido.items,
+      dir: pedido.direccionEntrega,
+      tel: pedido.telefonoCliente,
+      grua: pedido.requiereGrua,
+      obs: pedido.observaciones
+    }));
+    
+    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}&data=${datosPedido}`;
     navigator.clipboard.writeText(urlSeguimiento);
     setCopiadoId(pedido.id);
     setTimeout(() => setCopiadoId(null), 2500);
   };
 
-  const imprimirComprobante = (p: any) => {
+  function imprimirComprobante(p: any) {
     const ventanaImpresion = window.open('', '_blank');
     if (!ventanaImpresion) return;
 
@@ -367,7 +368,7 @@ export default function PedidosPage() {
     setTimeout(() => {
       ventanaImpresion.print();
     }, 300);
-  };
+  }
 
   const pedidosFiltrados = pedidos.filter((p: any) => {
     const coincideBusq = (p.nombreCliente || '').toLowerCase().includes(busqueda.toLowerCase()) || 
@@ -450,6 +451,10 @@ export default function PedidosPage() {
               {pedidosFiltrados.length > 0 ? (
                 pedidosFiltrados.map((p: any) => {
                   const estadoActual = (p.estado || 'Pendiente').toLowerCase();
+                  function enviarWhatsAppPreparado(p: any) {
+                    throw new Error('Function not implemented.');
+                  }
+
                   return (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="px-5 py-4 font-mono text-xs">
@@ -561,7 +566,7 @@ export default function PedidosPage() {
                                 if (estadoActual === 'preparado') {
                                   enviarWhatsAppPreparado(p);
                                 } else if (estadoActual === 'entregado') {
-                                  enviarWhatsAppEntrega(p);
+                                  enviarWhatsAppPendiente(p);
                                 } else {
                                   enviarWhatsAppPendiente(p);
                                 }
@@ -587,7 +592,7 @@ export default function PedidosPage() {
                             <button
                               onClick={() => {
                                 actualizarEstadoPedido(p.id, 'Entregado');
-                                if (p.telefonoCliente) enviarWhatsAppEntrega(p);
+                                if (p.telefonoCliente) enviarWhatsAppPendiente(p);
                               }}
                               className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
                               title="Finalizar Pedido, descontar del stock y enviar WhatsApp"

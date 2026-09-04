@@ -7,63 +7,77 @@ import { Building2, AlertCircle } from 'lucide-react';
 function ContenidoSeguimiento() {
   const searchParams = useSearchParams();
   const idBuscado = searchParams.get('id');
+  const dataParam = searchParams.get('data');
 
   const [pedido, setPedido] = useState<any | null>(null);
   const [montado, setMontado] = useState(false);
-  const [todosLosPedidos, setTodosLosPedidos] = useState<any[]>([]);
 
   useEffect(() => {
     setMontado(true);
-    if (typeof window !== 'undefined' && idBuscado) {
+    if (typeof window !== 'undefined') {
       try {
-        const guardados = localStorage.getItem('corralon_pedidos') || localStorage.getItem('inventario_pedidos');
-        
-        if (guardados) {
-          const listaPedidos: any[] = JSON.parse(guardados);
-          setTodosLosPedidos(listaPedidos);
-          const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
-          
-          const encontrado = listaPedidos.find(p => {
-            const pId = String(p.id || '').trim().toLowerCase();
-            const pNro = String(p.nroPedido || '').trim().toLowerCase();
-            return pId === queryLimpio || pNro === queryLimpio || pNro === queryLimpio.replace('#', '');
+        if (dataParam) {
+          const parsedData = JSON.parse(decodeURIComponent(dataParam));
+          setPedido({
+            nroPedido: parsedData.nro || idBuscado,
+            nombreCliente: parsedData.cliente || 'Cliente',
+            estado: parsedData.estado || 'Pendiente',
+            total: parsedData.total || 0,
+            fecha: parsedData.fecha || '',
+            items: parsedData.items || [],
+            direccionEntrega: parsedData.dir || 'Retiro en local',
+            telefonoCliente: parsedData.tel || '',
+            requiereGrua: parsedData.grua || 'NO'
           });
+          return;
+        }
 
-          if (encontrado) {
-            setPedido(encontrado);
+        if (idBuscado) {
+          const guardados = localStorage.getItem('corralon_pedidos') || localStorage.getItem('inventario_pedidos');
+          if (guardados) {
+            const listaPedidos: any[] = JSON.parse(guardados);
+            const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
+            
+            const encontrado = listaPedidos.find(p => {
+              const pId = String(p.id || '').trim().toLowerCase();
+              const pNro = String(p.nroPedido || p.numero || '').trim().toLowerCase();
+              return pId === queryLimpio || pNro === queryLimpio;
+            });
+
+            if (encontrado) {
+              setPedido({
+                nroPedido: encontrado.nroPedido || encontrado.numero || idBuscado,
+                nombreCliente: encontrado.nombreCliente || encontrado.cliente || 'Cliente',
+                estado: encontrado.estado || 'Pendiente',
+                total: encontrado.total || 0,
+                fecha: encontrado.fecha || '',
+                items: encontrado.items || [],
+                direccionEntrega: encontrado.direccionEntrega || 'Retiro en local',
+                telefonoCliente: encontrado.telefonoCliente || '',
+                requiereGrua: encontrado.requiereGrua || 'NO'
+              });
+            }
           }
         }
       } catch (e) {
-        console.error('Error al buscar el pedido:', e);
+        console.error('Error al procesar el pedido:', e);
       }
     }
-  }, [idBuscado]);
+  }, [idBuscado, dataParam]);
 
   if (!montado) return null;
 
   if (!pedido) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-lg w-full text-center space-y-4 shadow-2xl">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full text-center space-y-4 shadow-2xl">
           <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-bold">Pedido no encontrado</h2>
           <p className="text-slate-400 text-sm">
-            Buscando ID en URL: <code className="text-amber-400 bg-slate-950 px-2 py-0.5 rounded">{idBuscado || 'Ninguno'}</code>
+            El enlace de seguimiento no es válido o el pedido ya no está disponible.
           </p>
-          <div className="text-left bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2 mt-4 max-h-48 overflow-y-auto">
-            <strong className="text-slate-300 block">Pedidos disponibles en este navegador:</strong>
-            {todosLosPedidos.length > 0 ? (
-              todosLosPedidos.map((p, idx) => (
-                <div key={idx} className="border-b border-slate-900 pb-1 font-mono text-slate-400">
-                  - id: <span className="text-white">{p.id}</span> | nroPedido: <span className="text-amber-400">{p.nroPedido}</span> | Cliente: {p.nombreCliente}
-                </div>
-              ))
-            ) : (
-              <p className="text-rose-400">No hay ningún pedido guardado en el localStorage de este navegador.</p>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -163,12 +177,7 @@ function ContenidoSeguimiento() {
             </div>
           </div>
 
-          {pedido.observaciones && (
-            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3.5 rounded-xl text-xs space-y-1">
-              <strong className="block font-bold">Observaciones del Pedido:</strong>
-              <p>{pedido.observaciones}</p>
-            </div>
-          )}
+          {/* CUADRO DE OBSERVACIONES ELIMINADO CORRECTAMENTE */}
 
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Artículos del Pedido</h3>
