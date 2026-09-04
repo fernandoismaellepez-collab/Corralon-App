@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Package, Truck, CheckCircle2, Clock, MapPin, Phone, Building2, AlertCircle } from 'lucide-react';
+import { Building2, AlertCircle } from 'lucide-react';
 
 function ContenidoSeguimiento() {
   const searchParams = useSearchParams();
@@ -10,6 +10,7 @@ function ContenidoSeguimiento() {
 
   const [pedido, setPedido] = useState<any | null>(null);
   const [montado, setMontado] = useState(false);
+  const [todosLosPedidos, setTodosLosPedidos] = useState<any[]>([]);
 
   useEffect(() => {
     setMontado(true);
@@ -19,25 +20,13 @@ function ContenidoSeguimiento() {
         
         if (guardados) {
           const listaPedidos: any[] = JSON.parse(guardados);
+          setTodosLosPedidos(listaPedidos);
           const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
           
-          console.log("Buscando ID/Pedido:", queryLimpio);
-          console.log("Lista en localStorage:", listaPedidos);
-
-          // Búsqueda ultra flexible
           const encontrado = listaPedidos.find(p => {
             const pId = String(p.id || '').trim().toLowerCase();
             const pNro = String(p.nroPedido || '').trim().toLowerCase();
-            const pNroSinCeros = pNro.replace(/^0+/, ''); // Convierte '09' en '9'
-            const querySinCeros = queryLimpio.replace(/^0+/, '');
-
-            return (
-              pId === queryLimpio ||
-              pNro === queryLimpio ||
-              `#${pNro}` === queryLimpio ||
-              pNro === queryLimpio.replace('#', '') ||
-              pNroSinCeros === querySinCeros
-            );
+            return pId === queryLimpio || pNro === queryLimpio || pNro === queryLimpio.replace('#', '');
           });
 
           if (encontrado) {
@@ -55,14 +44,26 @@ function ContenidoSeguimiento() {
   if (!pedido) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full text-center space-y-4 shadow-2xl">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-lg w-full text-center space-y-4 shadow-2xl">
           <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-bold">Pedido no encontrado</h2>
           <p className="text-slate-400 text-sm">
-            No pudimos encontrar el pedido <span className="text-amber-400 font-mono">#{idBuscado}</span>. Asegúrate de abrir el enlace desde el mismo navegador donde se cargó el pedido (ya que los datos se almacenan localmente en tu dispositivo).
+            Buscando ID en URL: <code className="text-amber-400 bg-slate-950 px-2 py-0.5 rounded">{idBuscado || 'Ninguno'}</code>
           </p>
+          <div className="text-left bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2 mt-4 max-h-48 overflow-y-auto">
+            <strong className="text-slate-300 block">Pedidos disponibles en este navegador:</strong>
+            {todosLosPedidos.length > 0 ? (
+              todosLosPedidos.map((p, idx) => (
+                <div key={idx} className="border-b border-slate-900 pb-1 font-mono text-slate-400">
+                  - id: <span className="text-white">{p.id}</span> | nroPedido: <span className="text-amber-400">{p.nroPedido}</span> | Cliente: {p.nombreCliente}
+                </div>
+              ))
+            ) : (
+              <p className="text-rose-400">No hay ningún pedido guardado en el localStorage de este navegador.</p>
+            )}
+          </div>
         </div>
       </div>
     );
