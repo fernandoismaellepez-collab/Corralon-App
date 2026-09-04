@@ -219,13 +219,14 @@ export default function PedidosPage() {
     };
     setItemsEditadosTemp([...itemsEditadosTemp, nuevoItem]);
   };
-const enviarWhatsAppPendiente = (pedido: any) => {
+
+  const enviarWhatsAppPendiente = (pedido: any) => {
     let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
     if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
       telefonoLimpio = `549${telefonoLimpio}`;
     }
     
-    const idParam = pedido.id; // Usamos el ID único
+    const idParam = pedido.id;
     const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
     
     const nroLimpio = String(pedido.nroPedido || '').replace('#', '');
@@ -237,10 +238,28 @@ const enviarWhatsAppPendiente = (pedido: any) => {
     const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
     window.open(urlWhatsApp, '_blank');
   };
+
+  const enviarWhatsAppPreparado = (pedido: any) => {
+    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`;
+    }
+    
+    const idParam = pedido.id;
+    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
+    
+    const nroLimpio = String(pedido.nroPedido || '').replace('#', '');
+    const textoMensaje = 
+      `¡Hola *${pedido.nombreCliente}*! Te informamos que tu pedido *#${nroLimpio}* ya se encuentra *Preparado* / en camino. 🚚\n\n` +
+      `Podes ver los detalles de tu envío en tiempo real aquí:\n${urlSeguimiento}\n\n` +
+      `¡Gracias por elegirnos!`;
+
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
+    window.open(urlWhatsApp, '_blank');
   };
 
   const copiarLinkSeguimiento = (pedido: any) => {
-    const idParam = pedido.id; // Usamos el ID único (ej: PED-1788542764249)
+    const idParam = pedido.id;
     const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
     navigator.clipboard.writeText(urlSeguimiento);
     setCopiadoId(pedido.id);
@@ -427,9 +446,6 @@ const enviarWhatsAppPendiente = (pedido: any) => {
               {pedidosFiltrados.length > 0 ? (
                 pedidosFiltrados.map((p: any) => {
                   const estadoActual = (p.estado || 'Pendiente').toLowerCase();
-                  function enviarWhatsAppPreparado(p: any) {
-                    throw new Error('Function not implemented.');
-                  }
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
