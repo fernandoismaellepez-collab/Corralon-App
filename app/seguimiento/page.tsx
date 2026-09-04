@@ -1,34 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { 
-  Package, 
-  Truck, 
-  CheckCircle2, 
-  Clock, 
-  MapPin, 
-  Phone, 
-  Building2, 
-  AlertCircle,
-  Navigation
-} from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-const customIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-export default function SeguimientoPedidoPage() {
-  const params = useParams();
-  const idPedido = params?.id as string;
+function ContenidoSeguimiento() {
+  const searchParams = useSearchParams();
+  const idPedido = searchParams.get('id');
 
   const [pedido, setPedido] = useState<any | null>(null);
   const [montado, setMontado] = useState(false);
@@ -67,7 +44,7 @@ export default function SeguimientoPedidoPage() {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
         <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full text-center space-y-4 shadow-2xl">
           <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full flex items-center justify-center mx-auto">
-            <AlertCircle className="w-6 h-6" />
+            <span className="text-xl font-bold">!</span>
           </div>
           <h2 className="text-xl font-bold">Pedido no encontrado</h2>
           <p className="text-slate-400 text-sm">
@@ -95,16 +72,12 @@ export default function SeguimientoPedidoPage() {
   };
 
   const indiceActual = obtenerIndicePasoActual();
-  const defaultPosition: [number, number] = [-34.4588, -58.9143];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 py-10 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-2xl mb-1">
-            <Building2 className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight">ZETA CORRALÓN</h1>
+          <h1 className="text-2xl font-black tracking-tight text-amber-500">ZETA CORRALÓN</h1>
           <p className="text-xs text-slate-400 uppercase tracking-widest font-mono">Seguimiento Online de Envío</p>
         </div>
 
@@ -143,7 +116,7 @@ export default function SeguimientoPedidoPage() {
                       <div className={`absolute -left-6 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                         completado ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-slate-950 border-slate-700 text-transparent'
                       }`}>
-                        {completado && <CheckCircle2 className="w-3.5 h-3.5 stroke-[3]" />}
+                        {completado && <span className="text-[10px] font-bold text-slate-950">✓</span>}
                       </div>
                       <div className="space-y-0.5">
                         <h4 className={`text-sm font-bold ${enCurso ? 'text-amber-400' : completado ? 'text-slate-100' : 'text-slate-500'}`}>
@@ -163,57 +136,18 @@ export default function SeguimientoPedidoPage() {
             </div>
           )}
 
-          {(estadoActual === 'en camino' || estadoActual === 'preparado' || estadoActual === 'pendiente') && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Navigation className="w-4 h-4 text-amber-500 animate-pulse" /> 
-                  Ubicación del Envío / Depósito
-                </h3>
-                <span className="text-[11px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono">
-                  En tiempo real
-                </span>
-              </div>
-              <div className="w-full h-64 rounded-xl overflow-hidden border border-slate-800 relative z-0">
-                <MapContainer 
-                  center={defaultPosition} 
-                  zoom={13} 
-                  scrollWheelZoom={false}
-                  style={{ height: '100%', width: '100%', backgroundColor: '#020617' }}
-                >
-                  <TileLayer
-                    attribution='&copy; OpenStreetMap contributors'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  />
-                  <Marker position={defaultPosition} icon={customIcon}>
-                    <Popup>
-                      <div className="text-slate-900 text-xs font-sans">
-                        <strong>Destino:</strong> {pedido.direccionEntrega}<br/>
-                        <strong>Cliente:</strong> {pedido.nombreCliente}
-                      </div>
-                    </Popup>
-                  </Marker>
-                </MapContainer>
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-800 text-xs">
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
               <span className="text-slate-500 block uppercase font-bold text-[10px]">Destinatario</span>
               <strong className="text-slate-200 text-sm block">{pedido.nombreCliente}</strong>
-              <span className="text-slate-400 flex items-center gap-1 pt-1">
-                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" /> {pedido.direccionEntrega}
-              </span>
+              <span className="text-slate-400 block pt-1">📍 {pedido.direccionEntrega}</span>
             </div>
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
               <span className="text-slate-500 block uppercase font-bold text-[10px]">Logística</span>
               <div className="text-slate-200 font-semibold pt-0.5">
                 Camión con Grúa: <span className={pedido.requiereGrua === 'SI' ? 'text-sky-400' : 'text-slate-400'}>{pedido.requiereGrua}</span>
               </div>
-              <span className="text-slate-400 flex items-center gap-1 pt-1">
-                <Phone className="w-3.5 h-3.5 text-amber-500 shrink-0" /> {pedido.telefonoCliente || 'Sin teléfono'}
-              </span>
+              <span className="text-slate-400 block pt-1">📞 {pedido.telefonoCliente || 'Sin teléfono'}</span>
             </div>
           </div>
 
@@ -231,7 +165,6 @@ export default function SeguimientoPedidoPage() {
                 <div key={index} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-100">{item.cantidad}x {item.nombre}</span>
-                    <span className="text-[10px] text-slate-500 font-mono block">Cód: {item.codigo}</span>
                     {item.acopio?.esAcopio && (
                       <span className="text-[10px] text-purple-400 block font-semibold">
                         📦 Acopio (Pendiente: {item.acopio.cantidadPendienteRetiro})
@@ -256,5 +189,13 @@ export default function SeguimientoPedidoPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SeguimientoPedidoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">Cargando seguimiento...</div>}>
+      <ContenidoSeguimiento />
+    </Suspense>
   );
 }
