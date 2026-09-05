@@ -17,6 +17,16 @@ export interface Producto {
   proveedorPredeterminado?: string;
 }
 
+export interface Proveedor {
+  id: string;
+  nombre: string;
+  contacto?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  cuit?: string;
+}
+
 export interface DetalleAcopio {
   esAcopio: boolean;
   diasResguardo: number;
@@ -69,6 +79,7 @@ export interface InventarioContextType {
   productos: Producto[];
   pedidos: Pedido[];
   clientes: Cliente[];
+  proveedores: Proveedor[];
   usuarios: UsuarioSistema[];
   gastosFijos: number;
   rolUsuario: 'operador' | 'ejecutivo';
@@ -79,6 +90,9 @@ export interface InventarioContextType {
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
   actualizarProductoCompleto: (productoActualizado: Producto) => void;
   importarOActualizarProductosMasivo: (nuevosProductos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => void;
+  agregarProveedor: (proveedor: Omit<Proveedor, 'id'>) => void;
+  actualizarProveedor: (proveedorActualizado: Proveedor) => void;
+  eliminarProveedor: (id: string) => void;
   registrarPedido: (pedido: Omit<Pedido, 'id' | 'nroPedido' | 'fecha'>) => void;
   actualizarEstadoPedido: (id: string, estado: Pedido['estado']) => void;
   actualizarRetiroAcopio: (pedidoId: string, productoId: string, cantidadRetirada: number) => void;
@@ -105,6 +119,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [rolUsuario, setRolUsuario] = useState<'operador' | 'ejecutivo'>('operador');
   const [sincronizando, setSincronizando] = useState<boolean>(true);
 
@@ -119,6 +134,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         let prodsLocal = [];
         let pedsLocal = [];
         let clisLocal = [];
+        let provsLocal = [];
         let usrsLocal = [];
         let gastosLocal = 500000;
 
@@ -127,6 +143,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
             prodsLocal = JSON.parse(localStorage.getItem('inventario_productos') || localStorage.getItem('corralon_productos') || '[]');
             pedsLocal = JSON.parse(localStorage.getItem('inventario_pedidos') || localStorage.getItem('corralon_pedidos') || '[]');
             clisLocal = JSON.parse(localStorage.getItem('inventario_clientes') || localStorage.getItem('corralon_clientes') || '[]');
+            provsLocal = JSON.parse(localStorage.getItem('inventario_proveedores') || localStorage.getItem('corralon_proveedores') || localStorage.getItem('proveedores') || '[]');
             usrsLocal = JSON.parse(localStorage.getItem('inventario_usuarios') || localStorage.getItem('corralon_usuarios') || '[]');
             gastosLocal = Number(localStorage.getItem('inventario_gastos_fijos') || localStorage.getItem('corralon_gastos_fijos') || '500000');
           } catch (e) {
@@ -141,6 +158,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
           setProductos(prodsLocal);
           setPedidos(pedsLocal);
           setClientes(clisLocal);
+          setProveedores(provsLocal);
           setUsuarios(usrsLocal.length > 0 ? usrsLocal : [{ id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }]);
           setGastosFijos(gastosLocal);
           setSincronizando(false);
@@ -157,10 +175,12 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         const nubeProdsValidos = Array.isArray(mapaNube['productos']) && mapaNube['productos'].length > 0;
         const nubePedsValidos = Array.isArray(mapaNube['pedidos']) && mapaNube['pedidos'].length > 0;
         const nubeClisValidos = Array.isArray(mapaNube['clientes']) && mapaNube['clientes'].length > 0;
+        const nubeProvsValidos = Array.isArray(mapaNube['proveedores']) && mapaNube['proveedores'].length > 0;
 
         const productosFinales = nubeProdsValidos ? mapaNube['productos'] : prodsLocal;
         const pedidosFinales = nubePedsValidos ? mapaNube['pedidos'] : pedsLocal;
         const clientesFinales = nubeClisValidos ? mapaNube['clientes'] : clisLocal;
+        const proveedoresFinales = nubeProvsValidos ? mapaNube['proveedores'] : provsLocal;
         const usuariosFinales = (Array.isArray(mapaNube['usuarios']) && mapaNube['usuarios'].length > 0) ? mapaNube['usuarios'] : (usrsLocal.length > 0 ? usrsLocal : [
           { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
         ]);
@@ -169,6 +189,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         setProductos(productosFinales);
         setPedidos(pedidosFinales);
         setClientes(clientesFinales);
+        setProveedores(proveedoresFinales);
         setUsuarios(usuariosFinales);
         setGastosFijos(gastosFinales);
 
@@ -177,6 +198,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
             { id: 'productos', payload: prodsLocal },
             { id: 'pedidos', payload: pedsLocal },
             { id: 'clientes', payload: clisLocal },
+            { id: 'proveedores', payload: provsLocal },
             { id: 'usuarios', payload: usuariosFinales },
             { id: 'gastosFijos', payload: gastosFinales }
           ]);
@@ -196,6 +218,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(`inventario_${clave}`, typeof datos === 'object' ? JSON.stringify(datos) : String(datos));
+        if (clave === 'proveedores') {
+          localStorage.setItem('proveedores', JSON.stringify(datos));
+        }
       }
       await supabase.from('app_data').upsert([
         { id: clave, payload: datos, updated_at: new Date().toISOString() }
@@ -271,6 +296,28 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     guardarEnNubeYLocal('productos', actualizados);
   };
 
+  const agregarProveedor = (nuevoProv: Omit<Proveedor, 'id'>) => {
+    const proveedorCompleto: Proveedor = {
+      ...nuevoProv,
+      id: `PROV-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
+    const actualizados = [proveedorCompleto, ...proveedores];
+    setProveedores(actualizados);
+    guardarEnNubeYLocal('proveedores', actualizados);
+  };
+
+  const actualizarProveedor = (proveedorActualizado: Proveedor) => {
+    const actualizados = proveedores.map(p => p.id === proveedorActualizado.id ? proveedorActualizado : p);
+    setProveedores(actualizados);
+    guardarEnNubeYLocal('proveedores', actualizados);
+  };
+
+  const eliminarProveedor = (id: string) => {
+    const actualizados = proveedores.filter(p => p.id !== id);
+    setProveedores(actualizados);
+    guardarEnNubeYLocal('proveedores', actualizados);
+  };
+
   const importarOActualizarProductosMasivo = (nuevosDatos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => {
     let listaModificada = [...productos];
     nuevosDatos.forEach(item => {
@@ -333,7 +380,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       fecha: new Date().toISOString().split('T')[0],
     };
 
-    // Descuento de stock inteligente para áridos y bolsas chicas / fraccionadas
     const nuevosProductos = productos.map(p => {
       let cantidadADescontar = 0;
 
@@ -341,7 +387,6 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
         const nombreItemLower = item.nombre.toLowerCase();
         const nombreProdLower = p.nombre.toLowerCase();
 
-        // 1. Coincidencia exacta por ID de producto
         if (item.productoId === p.id) {
           if (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) {
             cantidadADescontar += Number(item.cantidad) * 0.5;
@@ -349,14 +394,12 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
             cantidadADescontar += Number(item.cantidad);
           }
         } 
-        // 2. Fracciones de áridos independientes (ej. Arena x 1/2 mt descuenta 0.5 de Arena m3)
         else if (nombreItemLower.includes('arena') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('arena') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio') && !nombreProdLower.includes('bolsita') && !nombreProdLower.includes('chica')) {
           cantidadADescontar += Number(item.cantidad) * 0.5;
         }
         else if (nombreItemLower.includes('piedra') && (nombreItemLower.includes('1/2') || nombreItemLower.includes('medio')) && nombreProdLower.includes('piedra') && !nombreProdLower.includes('1/2') && !nombreProdLower.includes('medio')) {
           cantidadADescontar += Number(item.cantidad) * 0.5;
         }
-        // 3. Bolsas chicas / fraccionadas de cemento, cal o plasticor (1 bolsa grande = 3 chicas -> rinde 0.33 por bolsita)
         else if ((nombreItemLower.includes('bolsita') || nombreItemLower.includes('chica') || nombreItemLower.includes('balde') || nombreItemLower.includes('fraccionado')) && nombreItemLower.includes('cemento') && nombreProdLower.includes('cemento') && !nombreProdLower.includes('chica') && !nombreProdLower.includes('bolsita')) {
           cantidadADescontar += Number(item.cantidad) * (1 / 3);
         }
@@ -475,6 +518,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
   const restablecerInventario = () => {
     setProductos([]);
     setClientes([]);
+    setProveedores([]);
     setPedidos([]);
     setUsuarios([]);
     if (typeof window !== 'undefined') {
@@ -488,6 +532,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       productos,
       pedidos,
       clientes,
+      proveedores,
       usuarios,
       gastosFijos,
       rolUsuario,
@@ -498,6 +543,9 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       actualizarStock,
       actualizarProductoCompleto,
       importarOActualizarProductosMasivo,
+      agregarProveedor,
+      actualizarProveedor,
+      eliminarProveedor,
       registrarPedido,
       actualizarEstadoPedido,
       actualizarRetiroAcopio,

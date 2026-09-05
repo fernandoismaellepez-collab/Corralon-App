@@ -129,27 +129,25 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
   const agregarSolpe = (nuevaSolpeData: Omit<Solpe, 'idSolpe'>) => {
     // Saneamiento de los ítems al crear la Solpe para garantizar que el ID sea la clave maestra
-    itemsSanitizados: {
-      const itemsValidados = nuevaSolpeData.items.map(item => {
-        const prodEnStock = productos.find((p: any) => String(p.id ?? p.codigo) === String(item.productoId));
-        return {
-          ...item,
-          productoId: prodEnStock ? String(prodEnStock.id ?? prodEnStock.codigo) : item.productoId,
-          nombreProducto: prodEnStock ? prodEnStock.nombre : item.nombreProducto,
-          codigoProducto: prodEnStock ? prodEnStock.codigo : item.codigoProducto,
-        };
-      });
-
-      const nuevaSolpe: Solpe = {
-        ...nuevaSolpeData,
-        items: itemsValidados,
-        idSolpe: `SOL-${Math.floor(1000 + Math.random() * 9000)}`,
+    const itemsValidados = nuevaSolpeData.items.map(item => {
+      const prodEnStock = productos.find((p: any) => String(p.id ?? p.codigo) === String(item.productoId));
+      return {
+        ...item,
+        productoId: prodEnStock ? String(prodEnStock.id ?? prodEnStock.codigo) : item.productoId,
+        nombreProducto: prodEnStock ? prodEnStock.nombre : item.nombreProducto,
+        codigoProducto: prodEnStock ? prodEnStock.codigo : item.codigoProducto,
       };
+    });
 
-      const actualizadas = [nuevaSolpe, ...solpes];
-      setSolpes(actualizadas);
-      recalcularHistorial(actualizadas, productos);
-    }
+    const nuevaSolpe: Solpe = {
+      ...nuevaSolpeData,
+      items: itemsValidados,
+      idSolpe: `SOL-${Math.floor(1000 + Math.random() * 9000)}`,
+    };
+
+    const actualizadas = [nuevaSolpe, ...solpes];
+    setSolpes(actualizadas);
+    recalcularHistorial(actualizadas, productos);
   };
 
   const actualizarEstadoSolpe = (idSolpe: string, nuevoEstado: Solpe['estado']) => {
