@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Proveedor, ProductoProveedor, HistorialPrecio } from '../types/proveedores';
+import { useInventario } from '@/context/InventarioContext';
 
 interface ProveedoresContextType {
   proveedores: Proveedor[];
@@ -38,22 +39,23 @@ const proveedoresIniciales: Proveedor[] = [
 ];
 
 export const ProveedoresProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const inventario = useInventario() as any;
+
   const [proveedores, setProveedores] = useState<Proveedor[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('corralon_proveedores');
+      const saved = localStorage.getItem('corralon_proveedores') || localStorage.getItem('proveedores');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            // Normaliza IDs antiguos para que sean solo numéricos de 5 dígitos si no lo son
-            return parsed.map((p: Proveedor, index: number) => {
-              const esSoloNumeros = /^\d{5}$/.test(p.idProveedor);
-              if (!esSoloNumeros) {
-                // Genera un número de 5 dígitos basado en el índice o aleatorio seguro
-                const numAleatorio = Math.floor(10000 + Math.random() * 90000).toString();
-                return { ...p, idProveedor: numAleatorio };
-              }
-              return p;
+            return parsed.map((p: any) => {
+              const idValido = p.idProveedor || p.id || Math.floor(10000 + Math.random() * 90000).toString();
+              const esSoloNumeros = /^\d{5}$/.test(idValido);
+              return {
+                ...p,
+                idProveedor: esSoloNumeros ? idValido : Math.floor(10000 + Math.random() * 90000).toString(),
+                productosOfrecidos: p.productosOfrecidos || []
+              };
             });
           }
         } catch (e) {
@@ -65,18 +67,36 @@ export const ProveedoresProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
 
   useEffect(() => {
-    localStorage.setItem('corralon_proveedores', JSON.stringify(proveedores));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('corralon_proveedores', JSON.stringify(proveedores));
+      localStorage.setItem('proveedores', JSON.stringify(proveedores));
+    }
+    // Sincronizamos también con el InventarioContext si soporta proveedores
+    if (inventario && typeof inventario.sincronizarProveedores === 'function') {
+      inventario.sincronizarProveedores(proveedores);
+    }
   }, [proveedores]);
 
   const agregarProveedor = (nuevo: Omit<Proveedor, 'idProveedor'>) => {
-    // Genera un número aleatorio de exactamente 5 dígitos (desde 10000 hasta 99999)
     const idNumerico = Math.floor(10000 + Math.random() * 90000).toString();
 
     const proveedorCompleto: Proveedor = {
       ...nuevo,
-      idProveedor: idNumerico
+      idProveedor: idNumerico,
+      productosOfrecidos: nuevo.productosOfrecidos || []
     };
     setProveedores(prev => [proveedorCompleto, ...prev]);
+
+    // Opcional: registrar en inventario si tiene la función de agregar proveedor
+    if (inventario && typeof inventario.agregarProveedor === 'function') {
+      inventario.agregarProveedor({
+        nombre: nuevo.nombre,
+        telefono: nuevo.telefono,
+        email: nuevo.email,
+        direccion: nuevo.direccion,
+        cuit: nuevo.cuit
+      });
+    }
   };
 
   const actualizarProveedor = (idProveedor: string, datosActualizados: Partial<Proveedor>) => {
@@ -99,7 +119,7 @@ export const ProveedoresProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setProveedores(prev => prev.map(prov => {
       if (prov.idProveedor !== idProveedor) return prov;
 
-      const productosExistentes = [...prov.productosOfrecidos];
+      const productosExistentes = [...(prov.productosOfrecidos || [])];
       const index = productosExistentes.findIndex(p => p.productoId === productoId);
 
       if (index >= 0) {
@@ -109,7 +129,7 @@ export const ProveedoresProvider: React.FC<{ children: React.ReactNode }> = ({ c
             ...prodActual,
             precioUnitarioActual: nuevoPrecio,
             historialPrecios: [
-              ...prodActual.historialPrecios,
+              ...(prodActual.historialPrecios || []),
               { fecha: fechaHoy, precio: nuevoPrecio }
             ]
           };

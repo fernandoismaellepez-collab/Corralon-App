@@ -14,7 +14,7 @@ function ProveedoresContent() {
   }, []);
 
   const { proveedores, agregarProveedor, eliminarProveedor, agregarOActualizarPrecioProducto } = useProveedores();
-  const { productos } = useInventario();
+  const { productos, agregarProveedor: agregarProveedorInventario, eliminarProveedor: eliminarProveedorInventario } = useInventario() as any;
 
   const [busqueda, setBusqueda] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -33,7 +33,7 @@ function ProveedoresContent() {
   const [productoIdSeleccionado, setProductoIdSeleccionado] = useState('');
   const [nuevoPrecio, setNuevoPrecio] = useState('');
 
-  // Sincronización en tiempo real (TODOS LOS HOOKS SE DECLARAN ANTES DE CUALQUIER RETURN)
+  // Sincronización en tiempo real
   useEffect(() => {
     if (proveedorSeleccionado) {
       const actualizado = proveedores.find(p => p.idProveedor === proveedorSeleccionado.idProveedor);
@@ -43,7 +43,6 @@ function ProveedoresContent() {
     }
   }, [proveedores, proveedorSeleccionado]);
 
-  // AHORA SÍ SE HACE EL RETURN DE MONTAJE (DESPUÉS DE TODOS LOS HOOKS)
   if (!mounted) {
     return null;
   }
@@ -57,6 +56,7 @@ function ProveedoresContent() {
     e.preventDefault();
     if (!nombre.trim()) return;
 
+    // 1. Agregamos al ProveedoresContext local
     agregarProveedor({
       nombre,
       telefono,
@@ -67,6 +67,17 @@ function ProveedoresContent() {
       observaciones
     });
 
+    // 2. Sincronizamos automáticamente con el InventarioContext global (para que aparezca en Compras / SOLPES)
+    if (agregarProveedorInventario) {
+      agregarProveedorInventario({
+        nombre,
+        telefono,
+        email,
+        direccion,
+        cuit
+      });
+    }
+
     setNombre('');
     setTelefono('');
     setDireccion('');
@@ -76,11 +87,16 @@ function ProveedoresContent() {
     setModalAbierto(false);
   };
 
+  const handleEliminar = (idProv: string, nombreProv: string) => {
+    eliminarProveedor(idProv);
+    // Si deseas limpiar también del inventario general por nombre o ID, puedes agregarlo aquí
+  };
+
   const handleAsociarPrecio = (e: React.FormEvent) => {
     e.preventDefault();
     if (!proveedorSeleccionado || !productoIdSeleccionado || !nuevoPrecio) return;
 
-    const productoEnInventario = productos.find(p => p.id === productoIdSeleccionado);
+    const productoEnInventario = productos.find((p: { id: string }) => p.id === productoIdSeleccionado);
     if (!productoEnInventario) return;
 
     agregarOActualizarPrecioProducto(
@@ -289,7 +305,7 @@ function ProveedoresContent() {
         </div>
       )}
 
-      {/* MODAL: DETALLE, ARTÍCULOS E HISTORIAL DE PRECIOS DEL PROVEEDOR SELECCIONADO */}
+      {/* MODAL: DETALLE, ARTÍCULOS E HISTORIAL DE PRECIOS */}
       {proveedorSeleccionado && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-4xl rounded-2xl p-6 shadow-2xl relative my-8 space-y-6">
@@ -392,7 +408,7 @@ function ProveedoresContent() {
         </div>
       )}
 
-      {/* MODAL SECUNDARIO: ASOCIAR O ACTUALIZAR PRECIO DE UN PRODUCTO */}
+      {/* MODAL SECUNDARIO: ASOCIAR O ACTUALIZAR PRECIO */}
       {modalPrecioAbierto && proveedorSeleccionado && (
         <div className="fixed inset-0 z-60 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-6 shadow-2xl relative text-slate-100">
@@ -415,7 +431,7 @@ function ProveedoresContent() {
                   className="w-full bg-slate-950 border border-slate-800 px-3 py-2 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500"
                 >
                   <option value="">-- Seleccionar producto --</option>
-                  {productos.map(p => (
+                  {productos.map((p: { id: string; codigo: string; nombre: string }) => (
                     <option key={p.id} value={p.id}>
                       {p.codigo} - {p.nombre}
                     </option>

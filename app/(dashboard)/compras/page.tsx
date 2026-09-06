@@ -25,7 +25,7 @@ export default function ComprasYSolpesPage() {
   const [montado, setMontado] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   
-  const { productos, registrarRecepcionCompra } = useInventario();
+  const { productos, proveedores, registrarRecepcionCompra } = useInventario();
 
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState('');
   const [productoIdTemp, setProductoIdTemp] = useState('');
@@ -182,8 +182,8 @@ export default function ComprasYSolpesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {ordenes.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-slate-800/40 transition-colors">
+                {ordenes.map((ord, ordIdx) => (
+                  <tr key={`${ord.id}-${ordIdx}`} className="hover:bg-slate-800/40 transition-colors">
                     <td className="px-5 py-4 font-mono text-xs">
                       <span className="font-bold text-amber-500 text-sm">{ord.nroOrden}</span>
                       <div className="text-slate-500 mt-0.5">{ord.fecha}</div>
@@ -195,7 +195,7 @@ export default function ComprasYSolpesPage() {
                     <td className="px-5 py-4">
                       <div className="space-y-1 max-w-sm">
                         {ord.items.map((it, idx) => (
-                          <div key={idx} className="text-xs bg-slate-950 px-2.5 py-1 rounded border border-slate-800 flex justify-between">
+                          <div key={`item-${idx}`} className="text-xs bg-slate-950 px-2.5 py-1 rounded border border-slate-800 flex justify-between">
                             <span>{it.cantidad}x {it.nombre}</span>
                             <span className="text-slate-400 font-mono">${(it.precioEstimado * it.cantidad).toLocaleString('es-AR')}</span>
                           </div>
@@ -264,10 +264,15 @@ export default function ComprasYSolpesPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 >
                   <option value="">-- Seleccionar Proveedor --</option>
-                  <option value="Holcim Argentina">Holcim Argentina (Cementos)</option>
-                  <option value="Loma Negra">Loma Negra (Cementos y Cal)</option>
-                  <option value="Acindar">Acindar (Hierros y Aceros)</option>
-                  <option value="Cerámica Quilmes">Cerámica Quilmes (Ladrillos)</option>
+                  {proveedores && proveedores.length > 0 ? (
+                    proveedores.map((prov: any, provIdx: number) => (
+                      <option key={`prov-${prov.id || prov.idProveedor || provIdx}`} value={prov.nombre}>
+                        {prov.nombre} {prov.cuit ? `(CUIT: ${prov.cuit})` : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>No hay proveedores cargados</option>
+                  )}
                 </select>
               </div>
 
@@ -281,8 +286,8 @@ export default function ComprasYSolpesPage() {
                       className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-500"
                     >
                       <option value="">-- Seleccionar producto del inventario --</option>
-                      {productos.map((p: any) => (
-                        <option key={p.id} value={p.id}>
+                      {productos.map((p: any, pIdx: number) => (
+                        <option key={`prod-opt-${p.id || p.codigo}-${pIdx}`} value={p.id}>
                           {p.codigo} - {p.nombre} (Stock actual: {p.stockActual})
                         </option>
                       ))}
@@ -310,7 +315,7 @@ export default function ComprasYSolpesPage() {
                 <div className="space-y-2 max-h-48 overflow-y-auto mt-2">
                   {itemsOrden.length > 0 ? (
                     itemsOrden.map((item, index) => (
-                      <div key={index} className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between">
+                      <div key={`orden-item-${index}`} className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between">
                         <div>
                           <span className="font-bold text-slate-100 text-xs">{item.cantidad}x {item.nombre}</span>
                           <div className="text-[11px] text-slate-400 font-mono">
