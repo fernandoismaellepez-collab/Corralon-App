@@ -14,7 +14,8 @@ import {
   Share2,
   Printer,
   Calendar,
-  FileText
+  FileText,
+  CreditCard
 } from 'lucide-react';
 import { useInventario, ItemPedido, Pedido, Cliente } from '@/context/InventarioContext';
 
@@ -45,12 +46,21 @@ export default function PedidosPage() {
   const [telefonoCliente, setTelefonoCliente] = useState('');
   const [direccionEntrega, setDireccionEntrega] = useState('');
   const [requiereGrua, setRequiereGrua] = useState<'SI' | 'NO'>('NO');
+  const [formaPago, setFormaPago] = useState('Efectivo');
   const [observacionesPedido, setObservacionesPedido] = useState('');
   const [fechaEntregaPactada, setFechaEntregaPactada] = useState('');
   
   const [itemsPedido, setItemsPedido] = useState<ItemPedido[]>([]);
+  
+  // Sección 1: Producto estándar
   const [productoIdTemp, setProductoIdTemp] = useState('');
   const [cantidadTemp, setCantidadTemp] = useState<number | string>(1);
+
+  // Sección 2: Producto de inventario con PRECIO LIBRE (por volumen/bulto)
+  const [productoIdLibreTemp, setProductoIdLibreTemp] = useState('');
+  const [cantidadLibreTemp, setCantidadLibreTemp] = useState<number | string>(1);
+  const [precioLibreTemp, setPrecioLibreTemp] = useState<number | string>('');
+
   const [modalAcopioAbierto, setModalAcopioAbierto] = useState(false);
   const [pedidoSeleccionadoAcopio, setPedidoSeleccionadoAcopio] = useState<Pedido | null>(null);
   const [itemAcopioSeleccionado, setItemAcopioSeleccionado] = useState<ItemPedido | null>(null);
@@ -122,6 +132,48 @@ export default function PedidosPage() {
     setCantidadTemp(1);
   };
 
+  const agregarItemPrecioLibreAlPedido = () => {
+    if (!productoIdLibreTemp) return;
+    const prod = productos.find((p: any) => p.id === productoIdLibreTemp);
+    if (!prod) return;
+    const cant = parseFloat(String(cantidadLibreTemp).replace(',', '.')) || 1;
+    const precioLibre = parseFloat(String(precioLibreTemp).replace(',', '.')) || 0;
+    if (cant <= 0) return;
+
+    const existeIndex = itemsPedido.findIndex(i => i.productoId === prod.id);
+    if (existeIndex >= 0) {
+      const nuevos = [...itemsPedido];
+      nuevos[existeIndex].cantidad += cant;
+      nuevos[existeIndex].precioUnitario = precioLibre; // Actualiza con el precio por volumen/bulto
+      if (nuevos[existeIndex].acopio?.esAcopio) {
+        nuevos[existeIndex].acopio!.cantidadAcopiadaInicial = nuevos[existeIndex].cantidad;
+        nuevos[existeIndex].acopio!.cantidadPendienteRetiro = nuevos[existeIndex].cantidad;
+      }
+      setItemsPedido(nuevos);
+    } else {
+      setItemsPedido([
+        ...itemsPedido,
+        {
+          productoId: prod.id,
+          codigo: prod.codigo,
+          nombre: `${prod.nombre} (Precio Especial Volumen)`,
+          precioUnitario: precioLibre,
+          cantidad: cant,
+          estadoItem: 'Pendiente',
+          acopio: {
+            esAcopio: false,
+            diasResguardo: 30,
+            cantidadAcopiadaInicial: cant,
+            cantidadPendienteRetiro: 0
+          }
+        }
+      ]);
+    }
+    setProductoIdLibreTemp('');
+    setCantidadLibreTemp(1);
+    setPrecioLibreTemp('');
+  };
+
   const quitarItemPedido = (index: number) => {
     setItemsPedido(itemsPedido.filter((_, i) => i !== index));
   };
@@ -167,6 +219,7 @@ export default function PedidosPage() {
       telefonoCliente,
       direccionEntrega,
       requiereGrua,
+      formaPago,
       observaciones: observacionesPedido,
       fechaEntregaPactada,
       items: itemsPedido,
@@ -177,6 +230,7 @@ export default function PedidosPage() {
     limpiarClienteSeleccionado();
     setItemsPedido([]);
     setRequiereGrua('NO');
+    setFormaPago('Efectivo');
     setObservacionesPedido('');
     setFechaEntregaPactada('');
   };
@@ -302,7 +356,7 @@ export default function PedidosPage() {
               <h1>ZETA CORRALÓN</h1>
               <p><strong>Dirección:</strong> Av. Pres. Juan Domingo Perón 4275, Derqui</p>
               <p><strong>WhatsApp / Tel:</strong> 11 6830 4581</p>
-              <p><strong>Medios de pago:</strong> Efectivo, Transferencia, Mercado Pago, MODO, Tarjetas</p>
+              <p><strong>Forma de Pago:</strong> ${p.formaPago || 'Efectivo'}</p>
             </div>
             <div class="ticket-info">
               <h2>COMPROBANTE DE VENTA</h2>
@@ -386,7 +440,7 @@ export default function PedidosPage() {
             Gestión de Pedidos y Acopios
           </h1>
           <p className="text-slate-400 mt-1">
-            Registro de clientes por ID, control de entregas, acopios reprogramables y observaciones.
+            Registro de clientes por ID, control de entregas, acopios reprogramables, formas de pago y observaciones.
           </p>
         </div>
         <button 
@@ -433,7 +487,7 @@ export default function PedidosPage() {
               <tr>
                 <th className="px-5 py-4">Pedido / Fecha</th>
                 <th className="px-5 py-4">Cliente (ID / Datos)</th>
-                <th className="px-5 py-4">Detalle de Ítems, Acopios y Obs.</th>
+                <th className="px-5 py-4">Detalle de Ítems, Acopios y Pago</th>
                 <th className="px-5 py-4 text-center">Grúa</th>
                 <th className="px-5 py-4 text-right">Total ($)</th>
                 <th className="px-5 py-4 text-center">Estado General</th>
@@ -464,6 +518,9 @@ export default function PedidosPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="space-y-1.5 max-w-md">
+                          <div className="text-[11px] text-amber-400 font-medium inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 mb-1">
+                            <CreditCard className="w-3 h-3" /> Pago: {p.formaPago || 'Efectivo'}
+                          </div>
                           {(p.items || []).map((item: any, idx: number) => (
                             <div key={idx} className="text-xs bg-slate-950/60 border border-slate-800/80 p-2 rounded-lg">
                               <div className="flex justify-between font-medium text-slate-200">
@@ -706,7 +763,6 @@ export default function PedidosPage() {
                 onChange={(e) => setPedidoEnEdicion({ ...pedidoEnEdicion, fechaEntregaPactada: e.target.value })}
                 className="w-full bg-slate-950 border border-purple-500/30 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-purple-500 font-mono"
               />
-              <p className="text-[11px] text-slate-400 mt-1">Utiliza este campo si el cliente programa o reprograma la entrega del pedido para otro día u otra semana.</p>
             </div>
 
             <div className="space-y-1 bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl">
@@ -836,7 +892,7 @@ export default function PedidosPage() {
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
               <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
                 <ClipboardList className="w-6 h-6 text-amber-500" />
-                Registrar Nuevo Pedido
+                Registrar Nuevo Pedido / Venta
               </h2>
               <button 
                 onClick={() => setModalAbierto(false)}
@@ -942,6 +998,22 @@ export default function PedidosPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                   <div>
+                    <label className="block text-[11px] font-medium text-amber-400 mb-1 flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5" /> Forma de Pago *
+                    </label>
+                    <select
+                      value={formaPago}
+                      onChange={(e) => setFormaPago(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-semibold"
+                    >
+                      <option value="Efectivo">Efectivo</option>
+                      <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                      <option value="Mercado Pago / QR">Mercado Pago / QR</option>
+                      <option value="Tarjeta de Débito/Crédito">Tarjeta de Débito/Crédito</option>
+                      <option value="Cuenta Corriente">Cuenta Corriente</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-[11px] font-medium text-purple-300 mb-1">Reprogramación / Fecha Pactada</label>
                     <input
                       type="date"
@@ -950,21 +1022,23 @@ export default function PedidosPage() {
                       className="w-full px-3 py-1.5 bg-slate-900 border border-purple-500/30 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-purple-500 font-mono"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-amber-300 mb-1">Observaciones del Pedido</label>
-                    <input
-                      type="text"
-                      placeholder="Ej. Entregar por la tarde..."
-                      value={observacionesPedido}
-                      onChange={(e) => setObservacionesPedido(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-900 border border-amber-500/30 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-amber-300 mb-1">Observaciones del Pedido</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Entregar por la tarde..."
+                    value={observacionesPedido}
+                    onChange={(e) => setObservacionesPedido(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-amber-500/30 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-amber-500"
+                  />
                 </div>
               </div>
 
+              {/* SECCIÓN 1: Agregar desde Inventario (Precio Estándar) */}
               <div className="space-y-3">
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">Agregar Productos al Pedido</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">1. Agregar Productos desde Inventario (Precio Fijo)</label>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
                     <select
@@ -998,19 +1072,80 @@ export default function PedidosPage() {
                   <button
                     type="button"
                     onClick={agregarItemAlPedido}
-                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
                   >
                     <Plus className="w-4 h-4" /> Añadir
                   </button>
                 </div>
-                <div className="space-y-2 max-h-56 overflow-y-auto mt-2">
+              </div>
+
+              {/* SECCIÓN 2: Producto de Inventario con Precio Libre / Volumen (ej: Ladrillos por bulto) */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="block text-xs font-bold text-sky-400 uppercase tracking-wider">2. O Agregar desde Inventario con PRECIO LIBRE (Ej: Volumen / Bulto)</label>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                  <div className="sm:col-span-5">
+                    <select
+                      value={productoIdLibreTemp}
+                      onChange={(e) => setProductoIdLibreTemp(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-sky-500"
+                    >
+                      <option value="">-- Seleccionar producto de inventario --</option>
+                      {productos.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.codigo} - {p.nombre} (Disp: {p.stockActual})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={cantidadLibreTemp}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || !isNaN(Number(val))) setCantidadLibreTemp(val);
+                      }}
+                      placeholder="Cant"
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-sky-500 font-mono"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={precioLibreTemp}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || !isNaN(Number(val))) setPrecioLibreTemp(val);
+                      }}
+                      placeholder="Precio Unit. Especial ($)"
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-sky-500 font-mono"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={agregarItemPrecioLibreAlPedido}
+                      className="w-full bg-sky-600 hover:bg-sky-500 text-white px-3 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" /> Libre
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* LISTA DE ÍTEMS AGREGADOS */}
+              <div className="space-y-2 mt-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Ítems Seleccionados para el Pedido</label>
+                <div className="space-y-2 max-h-56 overflow-y-auto">
                   {itemsPedido.length > 0 ? (
                     itemsPedido.map((item, index) => (
                       <div key={index} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="font-bold text-slate-100 text-xs">{item.nombre}</span>
-                            <div className="text-[11px] text-slate-400 font-mono">
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                               Cant: {item.cantidad} | Unitario: ${item.precioUnitario.toLocaleString('es-AR')} | Subtotal: <strong className="text-emerald-400">${(item.precioUnitario * item.cantidad).toLocaleString('es-AR')}</strong>
                             </div>
                           </div>
@@ -1056,6 +1191,7 @@ export default function PedidosPage() {
                   )}
                 </div>
               </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
