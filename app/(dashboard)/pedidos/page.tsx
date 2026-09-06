@@ -144,7 +144,7 @@ export default function PedidosPage() {
     if (existeIndex >= 0) {
       const nuevos = [...itemsPedido];
       nuevos[existeIndex].cantidad += cant;
-      nuevos[existeIndex].precioUnitario = precioLibre; // Actualiza con el precio por volumen/bulto
+      nuevos[existeIndex].precioUnitario = precioLibre;
       if (nuevos[existeIndex].acopio?.esAcopio) {
         nuevos[existeIndex].acopio!.cantidadAcopiadaInicial = nuevos[existeIndex].cantidad;
         nuevos[existeIndex].acopio!.cantidadPendienteRetiro = nuevos[existeIndex].cantidad;
@@ -257,6 +257,18 @@ export default function PedidosPage() {
     }
     setModalEdicionAbierto(false);
     setPedidoEnEdicion(null);
+  };
+
+  const actualizarFormaPagoDirecta = (pedidoId: string, nuevaFormaPago: string) => {
+    const pedidoAEditar = pedidos.find((p: any) => p.id === pedidoId);
+    if (!pedidoAEditar) return;
+    const pedidoActualizado = {
+      ...pedidoAEditar,
+      formaPago: nuevaFormaPago
+    };
+    if (actualizarPedidoCompleto) {
+      actualizarPedidoCompleto(pedidoActualizado);
+    }
   };
 
   const agregarItemEnEdicion = () => {
@@ -518,8 +530,20 @@ export default function PedidosPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="space-y-1.5 max-w-md">
-                          <div className="text-[11px] text-amber-400 font-medium inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 mb-1">
-                            <CreditCard className="w-3 h-3" /> Pago: {p.formaPago || 'Efectivo'}
+                          <div className="flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 mb-1 max-w-xs">
+                            <CreditCard className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <select
+                              value={p.formaPago || 'Efectivo'}
+                              onChange={(e) => actualizarFormaPagoDirecta(p.id, e.target.value)}
+                              className="bg-transparent text-xs text-amber-300 font-semibold focus:outline-none cursor-pointer w-full"
+                              title="Modificar forma de pago directamente"
+                            >
+                              <option value="Efectivo" className="bg-slate-900 text-slate-200">Efectivo</option>
+                              <option value="Transferencia Bancaria" className="bg-slate-900 text-slate-200">Transferencia Bancaria</option>
+                              <option value="Mercado Pago / QR" className="bg-slate-900 text-slate-200">Mercado Pago / QR</option>
+                              <option value="Tarjeta de Débito/Crédito" className="bg-slate-900 text-slate-200">Tarjeta de Débito/Crédito</option>
+                              <option value="Cuenta Corriente" className="bg-slate-900 text-slate-200">Cuenta Corriente</option>
+                            </select>
                           </div>
                           {(p.items || []).map((item: any, idx: number) => (
                             <div key={idx} className="text-xs bg-slate-950/60 border border-slate-800/80 p-2 rounded-lg">
@@ -725,31 +749,48 @@ export default function PedidosPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">¿Grúa?</label>
-                  <select
-                    value={pedidoEnEdicion.requiereGrua || 'NO'}
-                    onChange={(e) => setPedidoEnEdicion({ ...pedidoEnEdicion, requiereGrua: e.target.value as 'SI' | 'NO' })}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="NO">NO</option>
-                    <option value="SI">SI</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">Estado</label>
-                  <select
-                    value={(pedidoEnEdicion.estado || 'Pendiente')}
-                    onChange={(e) => setPedidoEnEdicion({ ...pedidoEnEdicion, estado: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500 font-semibold"
-                  >
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Preparado">Preparado</option>
-                    <option value="Entregado">Entregado</option>
-                    <option value="Cancelado">Cancelado</option>
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5" /> Forma de Pago
+                </label>
+                <select
+                  value={pedidoEnEdicion.formaPago || 'Efectivo'}
+                  onChange={(e) => setPedidoEnEdicion({ ...pedidoEnEdicion, formaPago: e.target.value })}
+                  className="w-full bg-slate-950 border border-amber-500/30 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500 font-semibold"
+                >
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                  <option value="Mercado Pago / QR">Mercado Pago / QR</option>
+                  <option value="Tarjeta de Débito/Crédito">Tarjeta de Débito/Crédito</option>
+                  <option value="Cuenta Corriente">Cuenta Corriente</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">¿Grúa?</label>
+                <select
+                  value={pedidoEnEdicion.requiereGrua || 'NO'}
+                  onChange={(e) => setPedidoEnEdicion({ ...pedidoEnEdicion, requiereGrua: e.target.value as 'SI' | 'NO' })}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="NO">NO</option>
+                  <option value="SI">SI</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">Estado General</label>
+                <select
+                  value={(pedidoEnEdicion.estado || 'Pendiente')}
+                  onChange={(e) => setPedidoEnEdicion({ ...pedidoEnEdicion, estado: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500 font-semibold"
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Preparado">Preparado</option>
+                  <option value="Entregado">Entregado</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
               </div>
             </div>
 
@@ -1079,7 +1120,7 @@ export default function PedidosPage() {
                 </div>
               </div>
 
-              {/* SECCIÓN 2: Producto de Inventario con Precio Libre / Volumen (ej: Ladrillos por bulto) */}
+              {/* SECCIÓN 2: Producto de Inventario con Precio Libre / Volumen */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
                 <label className="block text-xs font-bold text-sky-400 uppercase tracking-wider">2. O Agregar desde Inventario con PRECIO LIBRE (Ej: Volumen / Bulto)</label>
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
