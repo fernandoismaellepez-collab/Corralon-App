@@ -25,7 +25,7 @@ export default function ComprasYSolpesPage() {
   const [montado, setMontado] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   
-  const { productos, proveedores, registrarRecepcionCompra } = useInventario();
+  const { productos, registrarRecepcionCompra } = useInventario();
 
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState('');
   const [productoIdTemp, setProductoIdTemp] = useState('');
@@ -51,10 +51,56 @@ export default function ComprasYSolpesPage() {
     if (!prod) return;
     const cant = Number(cantidadTemp) || 1;
 
+    let precioAsignado = Number(prod.precio) || 0;
+    try {
+      const provsGuardados = localStorage.getItem('corralon_proveedores') || localStorage.getItem('proveedores');
+      if (provsGuardados && proveedorSeleccionado) {
+        const listaProvs = JSON.parse(provsGuardados);
+        
+        // Limpieza flexible para encontrar el proveedor sin importar "S.A." o mayúsculas
+        const limpiar = (s: string) => s ? s.toLowerCase().replace(/s\.a\.|s\.r\.l\.|sa|srl/g, '').trim() : '';
+        const selLimpio = limpiar(proveedorSeleccionado);
+
+        const provObj = listaProvs.find((p: any) => {
+          const nombreProv = limpiar(p.nombre);
+          return nombreProv === selLimpio || nombreProv.includes(selLimpio) || selLimpio.includes(nombreProv);
+        });
+
+        if (provObj && Array.isArray(provObj.productosOfrecidos)) {
+          const idProdActual = String(prod.id).trim();
+          const codigoProdLimpio = prod.codigo ? String(prod.codigo).trim().toLowerCase() : '';
+          const nombreProdLimpio = prod.nombre ? String(prod.nombre).trim().toLowerCase() : '';
+
+          const itemProv = provObj.productosOfrecidos.find((ip: any) => {
+            const ipId = String(ip.productoId || ip.id || ip.idProducto || '').trim();
+            const ipCod = String(ip.codigoProducto || ip.codigo || '').trim().toLowerCase();
+            const ipNom = String(ip.nombreProducto || ip.nombre || '').trim().toLowerCase();
+
+            const matchId = ipId && ipId === idProdActual;
+            const matchCod = ipCod && codigoProdLimpio && ipCod === codigoProdLimpio;
+            const matchNom = ipNom && nombreProdLimpio && ipNom === nombreProdLimpio;
+
+            return matchId || matchCod || matchNom;
+          });
+
+          const precioEncontrado = itemProv 
+            ? Number(itemProv.precioUnitarioActual ?? itemProv.precio ?? itemProv.costo ?? 0)
+            : 0;
+
+          if (precioEncontrado > 0) {
+            precioAsignado = precioEncontrado;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error obteniendo precio de costo del proveedor", e);
+    }
+
     const existeIndex = itemsOrden.findIndex(i => i.productoId === prod.id);
     if (existeIndex >= 0) {
       const nuevos = [...itemsOrden];
       nuevos[existeIndex].cantidad += cant;
+      nuevos[existeIndex].precioEstimado = precioAsignado;
       setItemsOrden(nuevos);
     } else {
       setItemsOrden([
@@ -64,7 +110,7 @@ export default function ComprasYSolpesPage() {
           codigo: prod.codigo || 'S/C',
           nombre: prod.nombre,
           cantidad: cant,
-          precioEstimado: prod.precio || 0
+          precioEstimado: precioAsignado
         }
       ]);
     }
@@ -119,6 +165,20 @@ export default function ComprasYSolpesPage() {
 
   const pendientesCount = ordenes.filter(o => o.estado === 'Pendiente').length;
   const recibidasCount = ordenes.filter(o => o.estado === 'Recibida').length;
+
+  const [proveedoresLista, setProveedoresLista] = useState<any[]>([]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const provs = localStorage.getItem('corralon_proveedores') || localStorage.getItem('proveedores');
+      if (provs) {
+        try {
+          setProveedoresLista(JSON.parse(provs));
+        } catch (e) {
+          console.error("Error al cargar proveedores en compras", e);
+        }
+      }
+    }
+  }, [modalAbierto]);
 
   if (!montado) return null;
 
@@ -264,10 +324,10 @@ export default function ComprasYSolpesPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 >
                   <option value="">-- Seleccionar Proveedor --</option>
-                  {proveedores && proveedores.length > 0 ? (
-                    proveedores.map((prov: any, provIdx: number) => (
-                      <option key={`prov-${prov.id || prov.idProveedor || provIdx}`} value={prov.nombre}>
-                        {prov.nombre} {prov.cuit ? `(CUIT: ${prov.cuit})` : ''}
+                  {proveedoresLista && proveedoresLista.length > 0 ? (
+                    proveedoresLista.map((prov: any, provIdx: number) => (
+                      <option key={`prov-${prov.idProveedor || provIdx}`} value={prov.nombre}>
+                        {prov.nombre} {prov.cuit && prov.cuit !== 'No especificado' ? `(CUIT: ${prov.cuit})` : ''}
                       </option>
                     ))
                   ) : (
@@ -319,7 +379,7 @@ export default function ComprasYSolpesPage() {
                         <div>
                           <span className="font-bold text-slate-100 text-xs">{item.cantidad}x {item.nombre}</span>
                           <div className="text-[11px] text-slate-400 font-mono">
-                            Est. Unitario: ${item.precioEstimado.toLocaleString('es-AR')} | Subtotal: <strong className="text-emerald-400">${(item.precioEstimado * item.cantidad).toLocaleString('es-AR')}</strong>
+                            Costo Unitario: ${item.precioEstimado.toLocaleString('es-AR')} | Subtotal: <strong className="text-emerald-400">${(item.precioEstimado * item.cantidad).toLocaleString('es-AR')}</strong>
                           </div>
                         </div>
                         <button
