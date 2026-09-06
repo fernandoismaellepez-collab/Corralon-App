@@ -277,13 +277,27 @@ export default function PedidosPage() {
     const nuevoItem: ItemPedido = {
       productoId: prodEjemplo ? prodEjemplo.id : 'PRD-NEW',
       codigo: prodEjemplo ? prodEjemplo.codigo : 'NEW',
-      nombre: 'Nuevo producto (editar)',
+      nombre: prodEjemplo ? prodEjemplo.nombre : 'Nuevo producto',
       precioUnitario: prodEjemplo ? prodEjemplo.precio : 0,
       cantidad: 1,
       estadoItem: 'Pendiente',
       acopio: { esAcopio: false, diasResguardo: 30, cantidadAcopiadaInicial: 1, cantidadPendienteRetiro: 0 }
     };
     setItemsEditadosTemp([...itemsEditadosTemp, nuevoItem]);
+  };
+
+  const cambiarProductoEnEdicion = (index: number, nuevoProductoId: string) => {
+    const prod = productos.find((p: any) => p.id === nuevoProductoId);
+    if (!prod) return;
+    const nuevos = [...itemsEditadosTemp];
+    nuevos[index] = {
+      ...nuevos[index],
+      productoId: prod.id,
+      codigo: prod.codigo,
+      nombre: prod.nombre,
+      precioUnitario: prod.precio
+    };
+    setItemsEditadosTemp(nuevos);
   };
 
   const enviarWhatsAppPendiente = (pedido: any) => {
@@ -840,67 +854,80 @@ export default function PedidosPage() {
                 <button
                   type="button"
                   onClick={agregarItemEnEdicion}
-                  className="text-xs text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Agregar Ítem Rápido
                 </button>
               </div>
-              <div className="space-y-2 max-h-52 overflow-y-auto">
+              <div className="space-y-2 max-h-56 overflow-y-auto">
                 {itemsEditadosTemp.map((item: any, idx: number) => (
-                  <div key={idx} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex flex-col md:flex-row items-center justify-between gap-3">
-                    <div className="flex-1 w-full">
-                      <div className="font-bold text-slate-100 text-xs">{item.nombre}</div>
-                      <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-1">
-                        <span>Unit: ${item.precioUnitario}</span>
-                        <span>|</span>
-                        <span className="text-emerald-400 font-semibold">Subtotal: ${(item.precioUnitario * item.cantidad).toLocaleString('es-AR')}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-                      <div className="w-20">
-                        <label className="block text-[10px] text-slate-500 mb-0.5">Cantidad</label>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0.1"
-                          value={item.cantidad}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            const nuevos = [...itemsEditadosTemp];
-                            nuevos[idx].cantidad = val;
-                            if (nuevos[idx].acopio?.esAcopio) {
-                              nuevos[idx].acopio!.cantidadAcopiadaInicial = val;
-                              nuevos[idx].acopio!.cantidadPendienteRetiro = val;
-                            }
-                            setItemsEditadosTemp(nuevos);
-                          }}
-                          className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 text-center focus:outline-none focus:border-amber-500 font-mono"
-                        />
-                      </div>
-                      <div className="w-32">
-                        <label className="block text-[10px] text-slate-500 mb-0.5">Estado Ítem</label>
+                  <div key={idx} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                      <div className="flex-1 w-full space-y-1">
+                        <label className="block text-[10px] text-slate-400 uppercase font-semibold">Producto del Stock</label>
                         <select
-                          value={item.estadoItem || 'Pendiente'}
-                          onChange={(e) => {
-                            const nuevos = [...itemsEditadosTemp];
-                            nuevos[idx].estadoItem = e.target.value as 'Pendiente' | 'Entregado' | 'Anulado';
-                            setItemsEditadosTemp(nuevos);
-                          }}
-                          className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500"
+                          value={item.productoId || ''}
+                          onChange={(e) => cambiarProductoEnEdicion(idx, e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-2 focus:outline-none focus:border-amber-500 font-medium"
                         >
-                          <option value="Pendiente">Pendiente</option>
-                          <option value="Entregado">Entregado</option>
-                          <option value="Anulado">Anulado</option>
+                          <option value="">-- Seleccionar producto --</option>
+                          {productos.map((p: any) => (
+                            <option key={p.id} value={p.id}>
+                              {p.codigo} - {p.name || p.nombre} (${p.precio})
+                            </option>
+                          ))}
                         </select>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setItemsEditadosTemp(itemsEditadosTemp.filter((_, i) => i !== idx))}
-                        className="text-slate-500 hover:text-rose-400 p-1.5 mt-4 cursor-pointer"
-                        title="Quitar ítem"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                        <div className="w-20">
+                          <label className="block text-[10px] text-slate-400 mb-0.5">Cantidad</label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.1"
+                            value={item.cantidad}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const nuevos = [...itemsEditadosTemp];
+                              nuevos[idx].cantidad = val;
+                              if (nuevos[idx].acopio?.esAcopio) {
+                                nuevos[idx].acopio!.cantidadAcopiadaInicial = val;
+                                nuevos[idx].acopio!.cantidadPendienteRetiro = val;
+                              }
+                              setItemsEditadosTemp(nuevos);
+                            }}
+                            className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-2 text-center focus:outline-none focus:border-amber-500 font-mono"
+                          />
+                        </div>
+                        <div className="w-32">
+                          <label className="block text-[10px] text-slate-400 mb-0.5">Estado Ítem</label>
+                          <select
+                            value={item.estadoItem || 'Pendiente'}
+                            onChange={(e) => {
+                              const nuevos = [...itemsEditadosTemp];
+                              nuevos[idx].estadoItem = e.target.value as 'Pendiente' | 'Entregado' | 'Anulado';
+                              setItemsEditadosTemp(nuevos);
+                            }}
+                            className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-2 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Entregado">Entregado</option>
+                            <option value="Anulado">Anulado</option>
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setItemsEditadosTemp(itemsEditadosTemp.filter((_, i) => i !== idx))}
+                          className="text-slate-500 hover:text-rose-400 p-1.5 mt-4 cursor-pointer"
+                          title="Quitar ítem"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-900">
+                      <span>Precio Unitario: ${item.precioUnitario}</span>
+                      <span className="text-emerald-400 font-semibold">Subtotal: ${(item.precioUnitario * item.cantidad).toLocaleString('es-AR')}</span>
                     </div>
                   </div>
                 ))}
@@ -1090,7 +1117,7 @@ export default function PedidosPage() {
                       <option value="">-- Seleccionar producto del inventario --</option>
                       {productos.map((p: any) => (
                         <option key={p.id} value={p.id}>
-                          {p.codigo} - {p.nombre} (Disp: {p.stockActual}) - ${p.precio.toLocaleString('es-AR')}
+                          {p.codigo} - {p.name || p.nombre} (Disp: {p.stockActual}) - ${p.precio.toLocaleString('es-AR')}
                         </option>
                       ))}
                     </select>
@@ -1133,7 +1160,7 @@ export default function PedidosPage() {
                       <option value="">-- Seleccionar producto de inventario --</option>
                       {productos.map((p: any) => (
                         <option key={p.id} value={p.id}>
-                          {p.codigo} - {p.nombre} (Disp: {p.stockActual})
+                          {p.codigo} - {p.name || p.nombre} (Disp: {p.stockActual})
                         </option>
                       ))}
                     </select>
