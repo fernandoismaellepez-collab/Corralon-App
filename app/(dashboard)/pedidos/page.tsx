@@ -399,7 +399,6 @@ export default function PedidosPage() {
             <p><strong>Dirección de Entrega:</strong> ${p.direccionEntrega || 'Retiro en local'}</p>
             <p><strong>Camión con Grúa:</strong> ${p.requiereGrua || 'NO'}</p>
             <p><strong>Estado:</strong> ${p.estado.toUpperCase()}</p>
-            ${p.observaciones ? `<p><strong>Observaciones:</strong> ${p.observaciones}</p>` : ''}
           </div>
 
           <div class="section-title">Detalle de Productos del Pedido</div>
