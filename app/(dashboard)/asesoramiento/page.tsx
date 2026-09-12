@@ -225,11 +225,11 @@ function AsesoriasContent() {
 
   // Compartir Enlace URL directo
   const compartirEnlaceURL = () => {
-    const baseUrl = window.location.origin + window.location.pathname;
+    const baseUrl = window.location.origin + '/presupuesto-online';
     const urlCompartible = `${baseUrl}?ancho=${ancho}&largo=${largo}&plantas=${plantas}&merma=${margenDesperdicio}&cliente=${encodeURIComponent(nombreCliente)}`;
     
     navigator.clipboard.writeText(urlCompartible).then(() => {
-      alert('🔗 ¡Enlace interactivo copiado! Compartilo con tu cliente para que vea su presupuesto online en tiempo real.');
+      alert('🔗 ¡Enlace público interactivo copiado! El cliente podrá verlo sin registrarse.');
     });
   };
 
