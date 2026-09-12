@@ -1,24 +1,18 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, User, Check } from 'lucide-react';
-
-interface Mensaje {
-  id: string;
-  remitente: string;
-  texto: string;
-  hora: string;
-}
+import { useInventario } from '@/context/InventarioContext';
 
 export default function ChatInterno() {
+  const { mensajesChat = [], enviarMensajeChat } = useInventario() as any;
+
   const [abierto, setAbierto] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState('');
   const [tempNombre, setTempNombre] = useState('');
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
-  const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Cargar nombre de usuario y mensajes al iniciar de forma segura
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const usuarioGuardado = localStorage.getItem('corralon_chat_usuario');
@@ -26,34 +20,16 @@ export default function ChatInterno() {
         setNombreUsuario(usuarioGuardado);
         setTempNombre(usuarioGuardado);
       } else {
-        setEditandoNombre(true); // Forzamos pedir nombre con un input interno
+        setEditandoNombre(true);
       }
-
-      const msgsGuardados = localStorage.getItem('corralon_chat_mensajes');
-      if (msgsGuardados) {
-        try {
-          setMensajes(JSON.parse(msgsGuardados));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      const handleStorage = (e: StorageEvent) => {
-        if (e.key === 'corralon_chat_mensajes' && e.newValue) {
-          setMensajes(JSON.parse(e.newValue));
-        }
-      };
-      window.addEventListener('storage', handleStorage);
-      return () => window.removeEventListener('storage', handleStorage);
     }
   }, []);
 
-  // Auto-scroll al último mensaje
   useEffect(() => {
     if (abierto) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [mensajes, abierto]);
+  }, [mensajesChat, abierto]);
 
   const guardarNombre = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,20 +40,17 @@ export default function ChatInterno() {
     setEditandoNombre(false);
   };
 
-  const enviarMensaje = (e: React.FormEvent) => {
+  const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoMensaje.trim() || !nombreUsuario) return;
 
-    const mensajeNuevo: Mensaje = {
-      id: Date.now().toString(),
-      remitente: nombreUsuario,
-      texto: nuevoMensaje.trim(),
-      hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    const actualizados = [...mensajes, mensajeNuevo];
-    setMensajes(actualizados);
-    localStorage.setItem('corralon_chat_mensajes', JSON.stringify(actualizados));
+    if (enviarMensajeChat) {
+      enviarMensajeChat({
+        remitente: nombreUsuario,
+        texto: nuevoMensaje.trim(),
+        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+    }
     setNuevoMensaje('');
   };
 
@@ -91,12 +64,12 @@ export default function ChatInterno() {
         >
           <MessageSquare className="w-6 h-6" />
           <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono shadow">
-            {mensajes.length}
+            {mensajesChat.length}
           </span>
         </button>
       ) : (
         <div className="bg-slate-900 border border-slate-800 w-80 sm:w-96 h-[460px] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-          {/* Header del Chat */}
+          {/* Header */}
           <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -121,13 +94,12 @@ export default function ChatInterno() {
             </div>
           </div>
 
-          {/* Cuerpo: Si no hay nombre configurado, mostramos el formulario de configuración */}
           {editandoNombre ? (
             <div className="flex-1 p-6 flex flex-col items-center justify-center text-center space-y-4 bg-slate-950">
               <User className="w-10 h-10 text-amber-500 bg-amber-500/10 p-2 rounded-2xl border border-amber-500/20" />
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-white">¿Cómo te llamas o qué rol usas?</h4>
-                <p className="text-xs text-slate-400">Ej: Admin, Operativo Juan, Caja Pilar</p>
+                <p className="text-xs text-slate-400">Ej: Admin, Fer, Fati</p>
               </div>
               <form onSubmit={guardarNombre} className="w-full space-y-3">
                 <input
@@ -150,8 +122,8 @@ export default function ChatInterno() {
             <>
               {/* Mensajes */}
               <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/50">
-                {mensajes.length > 0 ? (
-                  mensajes.map((msg) => {
+                {mensajesChat.length > 0 ? (
+                  mensajesChat.map((msg: any) => {
                     const esMio = msg.remitente === nombreUsuario;
                     return (
                       <div key={msg.id} className={`flex flex-col ${esMio ? 'items-end' : 'items-start'}`}>
@@ -176,8 +148,8 @@ export default function ChatInterno() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Input para escribir */}
-              <form onSubmit={enviarMensaje} className="p-3 bg-slate-950 border-t border-slate-800 flex gap-2">
+              {/* Formulario */}
+              <form onSubmit={manejarEnvio} className="p-3 bg-slate-950 border-t border-slate-800 flex gap-2">
                 <input
                   type="text"
                   placeholder="Escribe un mensaje..."
