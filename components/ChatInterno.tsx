@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, User, Check, Smile, Edit2, Trash2, Bell, RefreshCw, VolumeX } from 'lucide-react';
 import { useInventario } from '@/context/InventarioContext';
+import { usePathname } from 'next/navigation';
 
 interface Mensaje {
   id: string;
@@ -12,7 +13,6 @@ interface Mensaje {
   esZumbido?: boolean;
 }
 
-// Categorías de emojis completas estilo WhatsApp
 const CATEGORIAS_EMOJIS = [
   {
     nombre: 'Construcción',
@@ -37,9 +37,14 @@ const CATEGORIAS_EMOJIS = [
 ];
 
 export default function ChatInterno() {
-  const { mensajesChat = [], enviarMensajeChat, actualizarMensajeChat, eliminarMensajeChat, forzarSincronizacionChat } = useInventario() as any;
+  const pathname = usePathname();
+  const inventario = useInventario() as any;
+  const mensajesChat = inventario?.mensajesChat || [];
+  const enviarMensajeChat = inventario?.enviarMensajeChat;
+  const actualizarMensajeChat = inventario?.actualizarMensajeChat;
+  const eliminarMensajeChat = inventario?.eliminarMensajeChat;
+  const forzarSincronizacionChat = inventario?.forzarSincronizacionChat;
 
-  const [esRutaPublica, setEsRutaPublica] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState('');
   const [tempNombre, setTempNombre] = useState('');
@@ -56,18 +61,13 @@ export default function ChatInterno() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const osciladorRef = useRef<OscillatorNode | null>(null);
 
-  // Validar si estamos en una ruta pública para bloquear el chat inmediatamente
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path.includes('/presupuesto-online') || path.includes('/seguimiento')) {
-        setEsRutaPublica(true);
-      }
-    }
-  }, []);
+  // Si estamos en la ruta pública, no renderizamos absolutamente nada del chat
+  if (pathname && (pathname.includes('/presupuesto-online') || pathname.includes('/seguimiento'))) {
+    return null;
+  }
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !esRutaPublica) {
+    if (typeof window !== 'undefined') {
       const usuarioGuardado = localStorage.getItem('corralon_chat_usuario');
       if (usuarioGuardado) {
         setNombreUsuario(usuarioGuardado);
@@ -79,10 +79,9 @@ export default function ChatInterno() {
       const leidoLocal = localStorage.getItem('corralon_ultimo_id_leido');
       if (leidoLocal) setUltimoIdLeido(leidoLocal);
     }
-  }, [esRutaPublica]);
+  }, []);
 
   useEffect(() => {
-    if (esRutaPublica) return;
     if (mensajesChat.length > 0 && nombreUsuario) {
       const ultimoMsg = mensajesChat[mensajesChat.length - 1];
       if (ultimoMsg.esZumbido && ultimoMsg.remitente !== nombreUsuario && ultimoMsg.id !== ultimoIdLeido) {
@@ -93,12 +92,7 @@ export default function ChatInterno() {
         }
       }
     }
-  }, [mensajesChat, abierto, ultimoIdLeido, nombreUsuario, esRutaPublica]);
-
-  // Si es ruta pública, el chat no se renderiza bajo ningún concepto
-  if (esRutaPublica) {
-    return null;
-  }
+  }, [mensajesChat, abierto, ultimoIdLeido, nombreUsuario]);
 
   const abrirChat = () => {
     setAbierto(true);
