@@ -80,6 +80,8 @@ export interface MensajeChat {
   remitente: string;
   texto: string;
   hora: string;
+  editado?: boolean;
+  esZumbido?: boolean;
 }
 
 export interface InventarioContextType {
@@ -109,7 +111,12 @@ export interface InventarioContextType {
   agregarUsuario: (usuario: Omit<UsuarioSistema, 'id'>) => void;
   eliminarUsuario: (id: string) => void;
   restablecerInventario: () => void;
+  
+  /* FUNCIONES DEL CHAT */
   enviarMensajeChat: (mensaje: Omit<MensajeChat, 'id'>) => void;
+  actualizarMensajeChat: (id: string, nuevoTexto: string) => void;
+  eliminarMensajeChat: (id: string) => void;
+  forzarSincronizacionChat: () => Promise<void>;
 }
 
 export const InventarioContext = createContext<InventarioContextType | undefined>(undefined);
@@ -138,109 +145,76 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc'
   );
 
-  useEffect(() => {
-    async function inicializarDatosYMigrar() {
-      try {
-        let prodsLocal = [];
-        let pedsLocal = [];
-        let clisLocal = [];
-        let provsLocal = [];
-        let usrsLocal = [];
-        let msgsLocal = [];
-        let gastosLocal = 500000;
-
-        if (typeof window !== 'undefined') {
-          try {
-            prodsLocal = JSON.parse(localStorage.getItem('inventario_productos') || localStorage.getItem('corralon_productos') || '[]');
-            pedsLocal = JSON.parse(localStorage.getItem('inventario_pedidos') || localStorage.getItem('corralon_pedidos') || '[]');
-            clisLocal = JSON.parse(localStorage.getItem('inventario_clientes') || localStorage.getItem('corralon_clientes') || '[]');
-            provsLocal = JSON.parse(localStorage.getItem('inventario_proveedores') || localStorage.getItem('corralon_proveedores') || localStorage.getItem('proveedores') || '[]');
-            usrsLocal = JSON.parse(localStorage.getItem('inventario_usuarios') || localStorage.getItem('corralon_usuarios') || '[]');
-            msgsLocal = JSON.parse(localStorage.getItem('corralon_chat_mensajes') || '[]');
-            gastosLocal = Number(localStorage.getItem('inventario_gastos_fijos') || localStorage.getItem('corralon_gastos_fijos') || '500000');
-          } catch (e) {
-            console.error('Error leyendo localstorage:', e);
-          }
-        }
-
-        const { data, error } = await supabase.from('app_data').select('*');
-
-        if (error) {
-          console.error('Error al conectar con Supabase:', error);
-          setProductos(prodsLocal);
-          setPedidos(pedsLocal);
-          setClientes(clisLocal);
-          setProveedores(provsLocal);
-          setUsuarios(usrsLocal.length > 0 ? usrsLocal : [{ id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }]);
-          setMensajesChat(msgsLocal);
-          setGastosFijos(gastosLocal);
-          setSincronizando(false);
-          return;
-        }
-
-        const mapaNube: Record<string, any> = {};
-        if (data && data.length > 0) {
-          data.forEach((row: any) => {
-            mapaNube[row.id] = row.payload;
-          });
-        }
-
-        const nubeProdsValidos = Array.isArray(mapaNube['productos']) && mapaNube['productos'].length > 0;
-        const nubePedsValidos = Array.isArray(mapaNube['pedidos']) && mapaNube['pedidos'].length > 0;
-        const nubeClisValidos = Array.isArray(mapaNube['clientes']) && mapaNube['clientes'].length > 0;
-        const nubeProvsValidos = Array.isArray(mapaNube['proveedores']) && mapaNube['proveedores'].length > 0;
-
-        const productosFinales = nubeProdsValidos ? mapaNube['productos'] : prodsLocal;
-        const pedidosFinales = nubePedsValidos ? mapaNube['pedidos'] : pedsLocal;
-        const clientesFinales = nubeClisValidos ? mapaNube['clientes'] : clisLocal;
-        const proveedoresFinales = nubeProvsValidos ? mapaNube['proveedores'] : provsLocal;
-        const usuariosFinales = (Array.isArray(mapaNube['usuarios']) && mapaNube['usuarios'].length > 0) ? mapaNube['usuarios'] : (usrsLocal.length > 0 ? usrsLocal : [
-          { id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }
-        ]);
-        const mensajesFinales = Array.isArray(mapaNube['mensajesChat']) ? mapaNube['mensajesChat'] : msgsLocal;
-        const gastosFinales = mapaNube['gastosFijos'] ?? gastosLocal;
-
-        setProductos(productosFinales);
-        setPedidos(pedidosFinales);
-        setClientes(clientesFinales);
-        setProveedores(proveedoresFinales);
-        setUsuarios(usuariosFinales);
-        setMensajesChat(mensajesFinales);
-        setGastosFijos(gastosFinales);
-
-      } catch (err) {
-        console.error('Excepción al sincronizar:', err);
-      } finally {
-        setSincronizando(false);
+  const cargarDatosDeNube = async (esSilencioso = false) => {
+    try {
+      const { data, error } = await supabase.from('app_data').select('*');
+      if (error) {
+        if (!esSilencioso) console.error('Error al sincronizar con Supabase:', error);
+        return;
       }
+
+      if (data && data.length > 0) {
+        const mapaNube: Record<string, any> = {};
+        data.forEach((row: any) => {
+          mapaNube[row.id] = row.payload;
+        });
+
+        if (mapaNube['productos']) setProductos(mapaNube['productos']);
+        if (mapaNube['pedidos']) setPedidos(mapaNube['pedidos']);
+        if (mapaNube['clientes']) setClientes(mapaNube['clientes']);
+        if (mapaNube['proveedores']) setProveedores(mapaNube['proveedores']);
+        if (mapaNube['usuarios']) setUsuarios(mapaNube['usuarios']);
+        if (mapaNube['mensajesChat']) setMensajesChat(mapaNube['mensajesChat'] || []);
+        if (mapaNube['gastosFijos'] !== undefined) setGastosFijos(mapaNube['gastosFijos']);
+      }
+    } catch (err) {
+      if (!esSilencioso) console.error('Excepción al cargar datos:', err);
+    }
+  };
+
+  useEffect(() => {
+    async function inicializar() {
+      let prodsLocal = [];
+      let pedsLocal = [];
+      let clisLocal = [];
+      let provsLocal = [];
+      let usrsLocal = [];
+      let msgsLocal = [];
+      let gastosLocal = 500000;
+
+      if (typeof window !== 'undefined') {
+        try {
+          prodsLocal = JSON.parse(localStorage.getItem('inventario_productos') || localStorage.getItem('corralon_productos') || '[]');
+          pedsLocal = JSON.parse(localStorage.getItem('inventario_pedidos') || localStorage.getItem('corralon_pedidos') || '[]');
+          clisLocal = JSON.parse(localStorage.getItem('inventario_clientes') || localStorage.getItem('corralon_clientes') || '[]');
+          provsLocal = JSON.parse(localStorage.getItem('inventario_proveedores') || localStorage.getItem('corralon_proveedores') || localStorage.getItem('proveedores') || '[]');
+          usrsLocal = JSON.parse(localStorage.getItem('inventario_usuarios') || localStorage.getItem('corralon_usuarios') || '[]');
+          msgsLocal = JSON.parse(localStorage.getItem('corralon_chat_mensajes') || '[]');
+          gastosLocal = Number(localStorage.getItem('inventario_gastos_fijos') || localStorage.getItem('corralon_gastos_fijos') || '500000');
+        } catch (e) {
+          console.error('Error leyendo localstorage:', e);
+        }
+      }
+
+      setProductos(prodsLocal);
+      setPedidos(pedsLocal);
+      setClientes(clisLocal);
+      setProveedores(provsLocal);
+      setUsuarios(usrsLocal.length > 0 ? usrsLocal : [{ id: 'USR-1', nombre: 'Fernando', apellido: 'Lepez', email: 'fernandoismaellepez@gmail.com', rol: 'ejecutivo' }]);
+      setMensajesChat(msgsLocal);
+      setGastosFijos(gastosLocal);
+
+      await cargarDatosDeNube(false);
+      setSincronizando(false);
     }
 
-    inicializarDatosYMigrar();
+    inicializar();
 
-    // Suscripción en tiempo real a Supabase para que el chat y los datos se actualicen al instante entre PCs
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_data' },
-        (payload: any) => {
-          const row = payload.new;
-          if (row && row.id) {
-            if (row.id === 'mensajesChat') setMensajesChat(row.payload || []);
-            if (row.id === 'productos') setProductos(row.payload || []);
-            if (row.id === 'pedidos') setPedidos(row.payload || []);
-            if (row.id === 'clientes') setClientes(row.payload || []);
-            if (row.id === 'proveedores') setProveedores(row.payload || []);
-            if (row.id === 'usuarios') setUsuarios(row.payload || []);
-            if (row.id === 'gastosFijos') setGastosFijos(row.payload);
-          }
-        }
-      )
-      .subscribe();
+    const intervaloSondeo = setInterval(() => {
+      cargarDatosDeNube(true);
+    }, 3000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(intervaloSondeo);
   }, []);
 
   const guardarEnNubeYLocal = async (clave: string, datos: any) => {
@@ -262,6 +236,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
+  /* FUNCIONES ESPECÍFICAS DEL CHAT */
   const enviarMensajeChat = (nuevoMsg: Omit<MensajeChat, 'id'>) => {
     const mensajeCompleto: MensajeChat = {
       ...nuevoMsg,
@@ -271,6 +246,25 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
     setMensajesChat(actualizados);
     guardarEnNubeYLocal('mensajesChat', actualizados);
   };
+
+  const actualizarMensajeChat = (id: string, nuevoTexto: string) => {
+    const actualizados = mensajesChat.map((m: any) => 
+      m.id === id ? { ...m, texto: nuevoTexto, editado: true } : m
+    );
+    setMensajesChat(actualizados);
+    guardarEnNubeYLocal('mensajesChat', actualizados);
+  };
+
+  const eliminarMensajeChat = (id: string) => {
+    const actualizados = mensajesChat.filter((m: any) => m.id !== id);
+    setMensajesChat(actualizados);
+    guardarEnNubeYLocal('mensajesChat', actualizados);
+  };
+
+  const forzarSincronizacionChat = async () => {
+    await cargarDatosDeNube(true);
+  };
+  /* FIN FUNCIONES DEL CHAT */
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -598,7 +592,12 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       agregarUsuario,
       eliminarUsuario,
       restablecerInventario,
-      enviarMensajeChat
+      
+      /* Aquí se exponen las funciones del chat al resto de la app */
+      enviarMensajeChat,
+      actualizarMensajeChat,
+      eliminarMensajeChat,
+      forzarSincronizacionChat
     }}>
       {children}
     </InventarioContext.Provider>
