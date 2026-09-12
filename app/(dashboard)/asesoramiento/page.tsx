@@ -1,11 +1,11 @@
 'use client';
-export const dynamic = 'force-dynamic'; // <--- Evita el error de prerenderizado en Vercel
-import { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+import { useState, useEffect, Suspense } from 'react';
 import { Calculator, ShoppingCart, CheckCircle, ArrowRight, HardHat, AlertCircle, MessageCircle, DollarSign, Percent, BookOpen, FileText, Truck, Save, Share2, Clock, Layers } from 'lucide-react';
 import { useInventario } from '@/context/InventarioContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function AsesoriasPage() {
+function AsesoriasContent() {
   const { productos, registrarPedido } = useInventario() as any;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,6 +40,7 @@ export default function AsesoriasPage() {
 
   // Sincronizar parámetros si se abre mediante URL compartida
   useEffect(() => {
+    if (!searchParams) return;
     const a = searchParams.get('ancho');
     const l = searchParams.get('largo');
     const p = searchParams.get('plantas');
@@ -146,7 +147,7 @@ export default function AsesoriasPage() {
 
     return listaFiltradaPorFase.map(mat => {
       const terminos = mat.terminosBúsqueda.toLowerCase().split(' ');
-      const prodEncontrado = productos.find((p: any) => terminos.every(t => p.nombre.toLowerCase().includes(t)));
+      const prodEncontrado = productos?.find((p: any) => terminos.every(t => p.nombre.toLowerCase().includes(t)));
       
       const precioU = prodEncontrado ? Number(prodEncontrado.precio) : 0;
       const stockDisp = prodEncontrado ? Number(prodEncontrado.stockActual) : 0;
@@ -627,5 +628,13 @@ export default function AsesoriasPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AsesoriasPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 text-slate-100 p-10 flex items-center justify-center">Cargando cotizador inteligente...</div>}>
+      <AsesoriasContent />
+    </Suspense>
   );
 }
