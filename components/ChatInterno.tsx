@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, User, Check, Smile, Edit2, Trash2, Bell, RefreshCw } from 'lucide-react';
+import { MessageSquare, X, Send, User, Check, Smile, Edit2, Trash2, Bell, RefreshCw, VolumeX } from 'lucide-react';
 import { useInventario } from '@/context/InventarioContext';
 
 interface Mensaje {
@@ -12,7 +12,16 @@ interface Mensaje {
   esZumbido?: boolean;
 }
 
-const EMOJIS_POPULARES = ['👍', '❤️', '😂', '🔥', '🙏', '📦', '🚚', '🏗️', '💰', '✔️', '❌', '✨'];
+const EMOJIS_POPULARES = [
+  // Materiales pesados y construcción
+  '🧱', '🏗️', '🪨', '🏚️', '🛠️', '⛏️', '⚒️', '🔩', '⚙️', '⛓️', '📏', '📐',
+  // Logística y transporte
+  '🚚', '🚛', '🚜', '📦', '📋', '📍', '🗺️', '⏱️', '🔑',
+  // Dinero y estados
+  '💰', '💵', '💳', '🧾', '📊', '📈', '✔️', '❌', '⚠️', '🚨', '⚡', '🔥',
+  // Expresiones y respuestas rápidas
+  '👍', '👎', '🤝', '👏', '🙌', '💪', '🙏', '👀', '💬', '📢', '⏰', '✨'
+];
 
 export default function ChatInterno() {
   const { mensajesChat = [], enviarMensajeChat, actualizarMensajeChat, eliminarMensajeChat, forzarSincronizacionChat } = useInventario() as any;
@@ -24,11 +33,14 @@ export default function ChatInterno() {
   const [nuevoMensaje, setNuevoMensaje] = useState('');
   const [mostrarEmojis, setMostrarEmojis] = useState(false);
   const [mensajeEditandoId, setMensajeEditandoId] = useState<string | null>(null);
-  const [efectoZumbido, setEfectoZumbido] = useState(false);
-  const [actualizandoManual, setActualizandoManual] = useState(false);
+  
+  // Estados para el control del zumbido y mensajes no leídos
+  const [hayZumbidoActivo, setHayZumbidoActivo] = useState(false);
+  const [ultimoIdLeido, setUltimoIdLeido] = useState<string | null>(null);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const ultimoMensajeIdRef = useRef<string | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const osciladorRef = useRef<OscillatorNode | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -39,48 +51,95 @@ export default function ChatInterno() {
       } else {
         setEditandoNombre(true);
       }
+      
+      const leidoLocal = localStorage.getItem('corralon_ultimo_id_leido');
+      if (leidoLocal) setUltimoIdLeido(leidoLocal);
     }
   }, []);
 
-  // Detectar si llega un zumbido nuevo de otro usuario para activar alerta visual y sonora
+  // Detectar nuevos mensajes y zumbidos
   useEffect(() => {
     if (mensajesChat.length > 0) {
       const ultimoMsg = mensajesChat[mensajesChat.length - 1];
-      if (ultimoMsg.esZumbido && ultimoMsg.id !== ultimoMensajeIdRef.current) {
-        ultimoMensajeIdRef.current = ultimoMsg.id;
-        
-        // Activar efecto visual de zumbido (sacudida)
-        setEfectoZumbido(true);
-        setTimeout(() => setEfectoZumbido(false), 1000);
-
-        // Reproducir alerta sonora con la Web Audio API (beep simple)
-        try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.value = 587.33; // Nota D5
-          gain.gain.setValueAtTime(0.2, ctx.currentTime);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.3);
-        } catch (e) {
-          console.error(e);
-        }
-
+      
+      if (ultimoMsg.esZumbido && ultimoMsg.id !== ultimoIdLeido) {
+        setHayZumbidoActivo(true);
+        reproducirSonidoZumbido();
         if (!abierto) {
           setAbierto(true);
         }
       }
     }
-  }, [mensajesChat, abierto]);
+  }, [mensajesChat, abierto, ultimoIdLeido]);
+
+  // Manejar apertura del chat (marca todo como leído y frena zumbido)
+  const abrirChat = () => {
+    setAbierto(true);
+    detenerZumbido();
+    if (mensajesChat.length > 0) {
+      const idUltimo = mensajesChat[mensajesChat.length - 1].id;
+      setUltimoIdLeido(idUltimo);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('corralon_ultimo_id_leido', idUltimo);
+      }
+    }
+  };
+
+  const reproducirSonidoZumbido = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      
+      if (osciladorRef.current) {
+        try { osciladorRef.current.stop(); } catch(e){}
+      }
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.2);
+      
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osciladorRef.current = osc;
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const detenerZumbido = () => {
+    setHayZumbidoActivo(false);
+    if (osciladorRef.current) {
+      try {
+        osciladorRef.current.stop();
+        osciladorRef.current = null;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   useEffect(() => {
     if (abierto) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [mensajesChat, abierto]);
+
+  // Calcular mensajes no leídos para la burbuja roja
+  const mensajesNoLeidos = mensajesChat.filter((m: any) => {
+    if (!ultimoIdLeido) return true;
+    const indexUltimo = mensajesChat.findIndex((msg: any) => msg.id === ultimoIdLeido);
+    const indexActual = mensajesChat.findIndex((msg: any) => msg.id === m.id);
+    return indexActual > indexUltimo;
+  }).length;
 
   const guardarNombre = (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,11 +186,9 @@ export default function ChatInterno() {
   };
 
   const actualizarChatManual = async () => {
-    setActualizandoManual(true);
     if (forzarSincronizacionChat) {
       await forzarSincronizacionChat();
     }
-    setTimeout(() => setActualizandoManual(false), 500);
   };
 
   const iniciarEdicion = (msg: Mensaje) => {
@@ -153,17 +210,19 @@ export default function ChatInterno() {
     <div className="fixed bottom-5 right-5 z-50">
       {!abierto ? (
         <button
-          onClick={() => setAbierto(true)}
+          onClick={abrirChat}
           className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-3.5 rounded-full shadow-2xl flex items-center justify-center transition-all cursor-pointer font-bold relative group animate-bounce"
           title="Abrir chat interno"
         >
           <MessageSquare className="w-6 h-6" />
-          <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono shadow">
-            {mensajesChat.length}
-          </span>
+          {mensajesNoLeidos > 0 && (
+            <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono shadow animate-pulse">
+              {mensajesNoLeidos}
+            </span>
+          )}
         </button>
       ) : (
-        <div className={`bg-slate-900 border border-slate-800 w-80 sm:w-96 h-[490px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-transform ${efectoZumbido ? 'animate-ping border-amber-400' : ''}`}>
+        <div className={`bg-slate-900 border border-slate-800 w-80 sm:w-96 h-[490px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all ${hayZumbidoActivo ? 'ring-4 ring-rose-500 animate-pulse' : ''}`}>
           {/* Header */}
           <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -171,12 +230,21 @@ export default function ChatInterno() {
               <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Chat Interno</h3>
             </div>
             <div className="flex items-center gap-2">
+              {hayZumbidoActivo && (
+                <button
+                  onClick={detenerZumbido}
+                  className="bg-rose-600 text-white px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 animate-bounce cursor-pointer"
+                  title="Silenciar zumbido"
+                >
+                  <VolumeX className="w-3 h-3" /> Silenciar
+                </button>
+              )}
               <button
                 onClick={actualizarChatManual}
                 className="text-slate-400 hover:text-amber-400 p-1 rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
                 title="Actualizar mensajes nuevos"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${actualizandoManual ? 'animate-spin text-amber-400' : ''}`} />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={enviarZumbido}
@@ -195,7 +263,10 @@ export default function ChatInterno() {
                 </button>
               )}
               <button
-                onClick={() => setAbierto(false)}
+                onClick={() => {
+                  detenerZumbido();
+                  setAbierto(false);
+                }}
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -262,7 +333,7 @@ export default function ChatInterno() {
                         </div>
                         <div className={`p-3 rounded-2xl text-xs max-w-[85%] relative ${
                           esZ
-                            ? 'bg-rose-600 text-white font-bold animate-pulse shadow-lg border border-rose-400'
+                            ? 'bg-rose-600 text-white font-bold shadow-lg border border-rose-400'
                             : esMio 
                               ? 'bg-amber-500 text-slate-950 font-medium rounded-br-none' 
                               : 'bg-slate-800 text-slate-200 rounded-bl-none border border-slate-700/50'
@@ -280,15 +351,15 @@ export default function ChatInterno() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Selector de Emojis */}
+              {/* Selector de Emojis Ampliado y Temático */}
               {mostrarEmojis && (
-                <div className="bg-slate-900 border-t border-slate-800 p-2 grid grid-cols-6 gap-1 text-center">
+                <div className="bg-slate-900 border-t border-slate-800 p-2.5 grid grid-cols-8 gap-1.5 text-center max-h-40 overflow-y-auto">
                   {EMOJIS_POPULARES.map((emoji, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => agregarEmoji(emoji)}
-                      className="hover:bg-slate-800 p-1.5 rounded-lg text-base cursor-pointer transition-colors"
+                      className="hover:bg-slate-800 hover:scale-110 p-1.5 rounded-lg text-lg cursor-pointer transition-all"
                     >
                       {emoji}
                     </button>
