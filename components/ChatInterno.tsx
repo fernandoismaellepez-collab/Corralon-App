@@ -16,11 +16,11 @@ interface Mensaje {
 const CATEGORIAS_EMOJIS = [
   {
     nombre: 'Construcción',
-    emojis: ['🧱', '🏗️', '🪨', '🏚️', '🛠️', '⛏️', '⚒️', '🔩', '⚙️', '⛓️', '📏', '📐', '🚚', '🚛', '🚜', '📦', ' forklif', ' forklifts', ' forklft', ' forklift', ' forklft', ' forklft']
+    emojis: ['🧱', '🏗️', '🪨', '🏚️', '🛠️', '⛏️', '⚒️', '🔩', '⚙️', '⛓️', '📏', '📐', '🚚', '🚛', '🚜', '📦']
   },
   {
     nombre: 'Caritas',
-    emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', 'hot_face', 'cold_face', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐']
+    emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐']
   },
   {
     nombre: 'Gestos y Manos',
@@ -28,7 +28,7 @@ const CATEGORIAS_EMOJIS = [
   },
   {
     nombre: 'Objetos y Negocios',
-    emojis: ['💰', '💵', '💶', '💷', '💴', '💳', '🧾', '📊', '📈', '📉', '📋', '📌', '📍', '📎', '📏', '📐', '✂️', '🗂️', '📁', '📂', '📅', '📆', '📇', '📈', '📉', '📢', '📣', '📯', '🔔', '🔕', '⏱️', '⏲️', '⏰', '⏱️', '⏳', '⌛', '🔑', '🗝️', '🔨', '斧', '🛠️', '🔧', '🔩', '⚙️', '🧱', '🔒', '🔓']
+    emojis: ['💰', '💵', '💶', '💷', '💴', '💳', '🧾', '📊', '📈', '📉', '📋', '📌', '📍', '📎', '📏', '📐', '✂️', '🗂️', '📁', '📂', '📅', '📆', '📇', '📢', '📣', '📯', '🔔', '🔕', '⏱️', '⏲️', '⏰', '⏳', '⌛', '🔑', '🗝️', '🔨', '🛠️', '🔧', '🔩', '⚙️', '🧱', '🔒', '🔓']
   },
   {
     nombre: 'Símbolos y Estados',
@@ -39,6 +39,7 @@ const CATEGORIAS_EMOJIS = [
 export default function ChatInterno() {
   const { mensajesChat = [], enviarMensajeChat, actualizarMensajeChat, eliminarMensajeChat, forzarSincronizacionChat } = useInventario() as any;
 
+  const [esRutaPublica, setEsRutaPublica] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState('');
   const [tempNombre, setTempNombre] = useState('');
@@ -55,8 +56,18 @@ export default function ChatInterno() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const osciladorRef = useRef<OscillatorNode | null>(null);
 
+  // Validar si estamos en una ruta pública para bloquear el chat inmediatamente
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.includes('/presupuesto-online') || path.includes('/seguimiento')) {
+        setEsRutaPublica(true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !esRutaPublica) {
       const usuarioGuardado = localStorage.getItem('corralon_chat_usuario');
       if (usuarioGuardado) {
         setNombreUsuario(usuarioGuardado);
@@ -68,9 +79,10 @@ export default function ChatInterno() {
       const leidoLocal = localStorage.getItem('corralon_ultimo_id_leido');
       if (leidoLocal) setUltimoIdLeido(leidoLocal);
     }
-  }, []);
+  }, [esRutaPublica]);
 
   useEffect(() => {
+    if (esRutaPublica) return;
     if (mensajesChat.length > 0 && nombreUsuario) {
       const ultimoMsg = mensajesChat[mensajesChat.length - 1];
       if (ultimoMsg.esZumbido && ultimoMsg.remitente !== nombreUsuario && ultimoMsg.id !== ultimoIdLeido) {
@@ -81,7 +93,12 @@ export default function ChatInterno() {
         }
       }
     }
-  }, [mensajesChat, abierto, ultimoIdLeido, nombreUsuario]);
+  }, [mensajesChat, abierto, ultimoIdLeido, nombreUsuario, esRutaPublica]);
+
+  // Si es ruta pública, el chat no se renderiza bajo ningún concepto
+  if (esRutaPublica) {
+    return null;
+  }
 
   const abrirChat = () => {
     setAbierto(true);
