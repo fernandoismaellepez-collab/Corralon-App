@@ -15,7 +15,8 @@ import {
   TrendingUp,
   LogOut,
   FileText,
-  Calculator
+  Calculator,
+  Wallet
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -81,6 +82,11 @@ export default function Sidebar() {
       label: 'Compras y Solpes',
       href: '/compras',
       icon: ClipboardList,
+    },
+    {
+      label: 'Caja Diaria',
+      href: '/caja',
+      icon: Wallet,
     },
     {
       label: 'Usuarios y Roles',
