@@ -338,6 +338,25 @@ export default function PedidosPage() {
     window.open(urlWhatsApp, '_blank');
   };
 
+  const enviarWhatsAppEntregado = (pedido: any) => {
+    let telefonoLimpio = (pedido.telefonoCliente || '').replace(/\D/g, '');
+    if (telefonoLimpio && !telefonoLimpio.startsWith('54')) {
+      telefonoLimpio = `549${telefonoLimpio}`;
+    }
+
+    const idParam = pedido.id;
+    const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
+
+    const nroLimpio = String(pedido.nroPedido || '').replace('#', '');
+    const textoMensaje =
+      `¡Hola *${pedido.nombreCliente}*! Te escribimos de Zeta Corralón para confirmarte que tu pedido *#${nroLimpio}* ha sido *Entregado con éxito* en tu domicilio. ✔️🏡\n\n` +
+      `Queremos agradecerte enormemente por tu compra y por confiar en nosotros. ¡Esperamos verte pronto!\n\n` +
+      `Podés revisar el historial de tu pedido aquí:\n${urlSeguimiento}`;
+
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(textoMensaje)}`;
+    window.open(urlWhatsApp, '_blank');
+  };
+
   const copiarLinkSeguimiento = (pedido: any) => {
     const idParam = pedido.id;
     const urlSeguimiento = `${window.location.origin}/seguimiento?id=${idParam}`;
@@ -650,7 +669,7 @@ export default function PedidosPage() {
                                 if (estadoActual === 'preparado') {
                                   enviarWhatsAppPreparado(p);
                                 } else if (estadoActual === 'entregado') {
-                                  enviarWhatsAppPendiente(p);
+                                  enviarWhatsAppEntregado(p);
                                 } else {
                                   enviarWhatsAppPendiente(p);
                                 }
@@ -676,7 +695,7 @@ export default function PedidosPage() {
                             <button
                               onClick={() => {
                                 actualizarEstadoPedido(p.id, 'Entregado');
-                                if (p.telefonoCliente) enviarWhatsAppPendiente(p);
+                                if (p.telefonoCliente) enviarWhatsAppEntregado(p);
                               }}
                               className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
                               title="Finalizar Pedido, descontar del stock y enviar WhatsApp"
