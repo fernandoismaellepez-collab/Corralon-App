@@ -12,11 +12,28 @@ interface Mensaje {
   esZumbido?: boolean;
 }
 
-const EMOJIS_POPULARES = [
-  '🧱', '🏗️', '🪨', '🏚️', '🛠️', '⛏️', '⚒️', '🔩', '⚙️', '⛓️', '📏', '📐',
-  '🚚', '🚛', '🚜', '📦', '📋', '📍', '🗺️', '⏱️', '🔑',
-  '💰', '💵', '💳', '🧾', '📊', '📈', '✔️', '❌', '⚠️', '🚨', '⚡', '🔥',
-  '👍', '👎', '🤝', '👏', '🙌', '💪', '🙏', '👀', '💬', '📢', '⏰', '✨'
+// Categorías de emojis completas estilo WhatsApp
+const CATEGORIAS_EMOJIS = [
+  {
+    nombre: 'Construcción',
+    emojis: ['🧱', '🏗️', '🪨', '🏚️', '🛠️', '⛏️', '⚒️', '🔩', '⚙️', '⛓️', '📏', '📐', '🚚', '🚛', '🚜', '📦', ' forklif', ' forklifts', ' forklft', ' forklift', ' forklft', ' forklft']
+  },
+  {
+    nombre: 'Caritas',
+    emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', 'hot_face', 'cold_face', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐']
+  },
+  {
+    nombre: 'Gestos y Manos',
+    emojis: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '💪', '🦾']
+  },
+  {
+    nombre: 'Objetos y Negocios',
+    emojis: ['💰', '💵', '💶', '💷', '💴', '💳', '🧾', '📊', '📈', '📉', '📋', '📌', '📍', '📎', '📏', '📐', '✂️', '🗂️', '📁', '📂', '📅', '📆', '📇', '📈', '📉', '📢', '📣', '📯', '🔔', '🔕', '⏱️', '⏲️', '⏰', '⏱️', '⏳', '⌛', '🔑', '🗝️', '🔨', '斧', '🛠️', '🔧', '🔩', '⚙️', '🧱', '🔒', '🔓']
+  },
+  {
+    nombre: 'Símbolos y Estados',
+    emojis: ['✔️', '☑️', '❌', '❎', '➕', '➖', '➗', '✖️', '💲', '💱', '©️', '®️', '™️', '🔚', '🔙', '🔛', '🔝', '🔜', '〰️', '➿', '⚠️', '🚸', '⛔', '🚫', '🚳', '🚭', '🚯', '🚱', '🚷', '📵', '🔞', '☢️', '☣️', '⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↕️', '↔️', '🔄', '◀️', '▶️', '🔼', '🔽', '🌠', '🎇', '🎆', '✨', '⭐', '🌟', '💫', '💥', '🔥', '☄️', '☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '⚡', '❄️', '🌨️', '☃️', '⛄', '🌬️', '💨', '💧', '💦', '☔', '☂️', '🌊', '🌫️']
+  }
 ];
 
 export default function ChatInterno() {
@@ -28,6 +45,7 @@ export default function ChatInterno() {
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
   const [mostrarEmojis, setMostrarEmojis] = useState(false);
+  const [categoriaActiva, setCategoriaActiva] = useState(0);
   const [mensajeEditandoId, setMensajeEditandoId] = useState<string | null>(null);
   
   const [hayZumbidoActivo, setHayZumbidoActivo] = useState(false);
@@ -52,12 +70,9 @@ export default function ChatInterno() {
     }
   }, []);
 
-  // Detectar zumbidos SOLO si fueron enviados por OTRO usuario
   useEffect(() => {
     if (mensajesChat.length > 0 && nombreUsuario) {
       const ultimoMsg = mensajesChat[mensajesChat.length - 1];
-      
-      // Condición clave: Es zumbido, NO lo envié yo, y es más nuevo que el último leído
       if (ultimoMsg.esZumbido && ultimoMsg.remitente !== nombreUsuario && ultimoMsg.id !== ultimoIdLeido) {
         setHayZumbidoActivo(true);
         reproducirSonidoZumbido();
@@ -204,7 +219,6 @@ export default function ChatInterno() {
 
   const agregarEmoji = (emoji: string) => {
     setNuevoMensaje(prev => prev + emoji);
-    setMostrarEmojis(false);
   };
 
   return (
@@ -223,7 +237,7 @@ export default function ChatInterno() {
           )}
         </button>
       ) : (
-        <div className={`bg-slate-900 border border-slate-800 w-80 sm:w-96 h-[490px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all ${hayZumbidoActivo ? 'ring-4 ring-rose-500 animate-pulse' : ''}`}>
+        <div className={`bg-slate-900 border border-slate-800 w-80 sm:w-96 h-[510px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all ${hayZumbidoActivo ? 'ring-4 ring-rose-500 animate-pulse' : ''}`}>
           {/* Header */}
           <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -352,19 +366,39 @@ export default function ChatInterno() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Selector de Emojis */}
+              {/* Panel de Emojis por Categorías Estilo WhatsApp */}
               {mostrarEmojis && (
-                <div className="bg-slate-900 border-t border-slate-800 p-2.5 grid grid-cols-8 gap-1.5 text-center max-h-40 overflow-y-auto">
-                  {EMOJIS_POPULARES.map((emoji, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => agregarEmoji(emoji)}
-                      className="hover:bg-slate-800 hover:scale-110 p-1.5 rounded-lg text-lg cursor-pointer transition-all"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                <div className="bg-slate-900 border-t border-slate-800 flex flex-col">
+                  {/* Pestañas de categorías */}
+                  <div className="flex bg-slate-950 border-b border-slate-800 px-2 py-1 gap-1 overflow-x-auto text-[10px]">
+                    {CATEGORIAS_EMOJIS.map((cat, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setCategoriaActiva(index)}
+                        className={`px-2.5 py-1 rounded-lg font-medium cursor-pointer transition-colors whitespace-nowrap ${
+                          categoriaActiva === index 
+                            ? 'bg-amber-500 text-slate-950 font-bold' 
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                        }`}
+                      >
+                        {cat.nombre}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Cuadrícula de emojis de la categoría seleccionada */}
+                  <div className="p-2.5 grid grid-cols-8 gap-1.5 text-center max-h-36 overflow-y-auto">
+                    {CATEGORIAS_EMOJIS[categoriaActiva].emojis.map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => agregarEmoji(emoji)}
+                        className="hover:bg-slate-800 hover:scale-110 p-1.5 rounded-lg text-lg cursor-pointer transition-all"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
