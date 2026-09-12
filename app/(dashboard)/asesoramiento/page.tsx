@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic'; // <--- Evita el error de prerenderizado en Vercel
 import { useState, useEffect } from 'react';
 import { Calculator, ShoppingCart, CheckCircle, ArrowRight, HardHat, AlertCircle, MessageCircle, DollarSign, Percent, BookOpen, FileText, Truck, Save, Share2, Clock, Layers } from 'lucide-react';
 import { useInventario } from '@/context/InventarioContext';
