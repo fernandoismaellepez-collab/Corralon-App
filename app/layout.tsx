@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { InventarioProvider } from "@/context/InventarioContext";
 import Sidebar from "@/components/Sidebar";
+import ChatInterno from "@/components/ChatInterno";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,8 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+
+          <ChatInterno />
         </InventarioProvider>
       </body>
     </html>
