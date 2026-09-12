@@ -3,26 +3,50 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Building2, AlertCircle } from 'lucide-react';
+import { useInventario } from '@/context/InventarioContext';
 
 function ContenidoSeguimiento() {
   const searchParams = useSearchParams();
   const idBuscado = searchParams.get('id');
+
+  // Traemos los pedidos directamente del contexto global sincronizado en la nube
+  const inventario = useInventario() as any;
+  const listaPedidosGlobal = inventario?.pedidos || [];
 
   const [pedido, setPedido] = useState<any | null>(null);
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
     setMontado(true);
-    if (typeof window !== 'undefined' && idBuscado) {
-      try {
+    if (!idBuscado) return;
+
+    try {
+      let encontrado: any = null;
+      const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
+      const querySinHash = queryLimpio.replace('#', '');
+
+      // 1. Intentar buscar primero en la lista global del contexto en la nube
+      if (listaPedidosGlobal.length > 0) {
+        encontrado = listaPedidosGlobal.find((p: any) => {
+          const pId = String(p.id || '').trim().toLowerCase();
+          const pNro = String(p.nroPedido || p.numero || '').trim().toLowerCase();
+          const pNroSinHash = pNro.replace('#', '');
+
+          return (
+            pId === queryLimpio || 
+            pNro === queryLimpio || 
+            pNroSinHash === querySinHash ||
+            pId === querySinHash
+          );
+        });
+      }
+
+      // 2. Si no está en la memoria global, buscar en localStorage como respaldo por si entra directo
+      if (!encontrado && typeof window !== 'undefined') {
         const guardados = localStorage.getItem('corralon_pedidos') || localStorage.getItem('inventario_pedidos');
-        
         if (guardados) {
-          const listaPedidos: any[] = JSON.parse(guardados);
-          const queryLimpio = decodeURIComponent(idBuscado).trim().toLowerCase();
-          const querySinHash = queryLimpio.replace('#', '');
-          
-          const encontrado = listaPedidos.find(p => {
+          const listaLocal: any[] = JSON.parse(guardados);
+          encontrado = listaLocal.find(p => {
             const pId = String(p.id || '').trim().toLowerCase();
             const pNro = String(p.nroPedido || p.numero || '').trim().toLowerCase();
             const pNroSinHash = pNro.replace('#', '');
@@ -34,26 +58,27 @@ function ContenidoSeguimiento() {
               pId === querySinHash
             );
           });
-
-          if (encontrado) {
-            setPedido({
-              nroPedido: encontrado.nroPedido || encontrado.numero || idBuscado,
-              nombreCliente: encontrado.nombreCliente || encontrado.cliente || 'Cliente',
-              estado: encontrado.estado || 'Pendiente',
-              total: encontrado.total || 0,
-              fecha: encontrado.fecha || '',
-              items: encontrado.items || [],
-              direccionEntrega: encontrado.direccionEntrega || 'Retiro en local',
-              telefonoCliente: encontrado.telefonoCliente || '',
-              requiereGrua: encontrado.requiereGrua || 'NO'
-            });
-          }
         }
-      } catch (e) {
-        console.error('Error al procesar el pedido:', e);
       }
+
+      if (encontrado) {
+        setPedido({
+          nroPedido: encontrado.nroPedido || encontrado.numero || idBuscado,
+          nombreCliente: encontrado.nombreCliente || encontrado.cliente || 'Cliente',
+          estado: encontrado.estado || 'Pendiente',
+          total: encontrado.total || 0,
+          fecha: encontrado.fecha || '',
+          items: encontrado.items || [],
+          direccionEntrega: encontrado.direccionEntrega || 'Retiro en local',
+          telefonoCliente: encontrado.telefonoCliente || '',
+          requiereGrua: encontrado.requiereGrua || 'NO',
+          observacionCancelacion: encontrado.observacionCancelacion || ''
+        });
+      }
+    } catch (e) {
+      console.error('Error al procesar el pedido:', e);
     }
-  }, [idBuscado]);
+  }, [idBuscado, listaPedidosGlobal]);
 
   if (!montado) return null;
 
@@ -106,7 +131,7 @@ function ContenidoSeguimiento() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
             <div>
               <span className="text-xs font-mono text-amber-400 uppercase font-bold">Número de Pedido</span>
-              <h2 className="text-3xl font-black font-mono text-slate-100 mt-0.5">#{pedido.nroPedido.replace('#', '')}</h2>
+              <h2 className="text-3xl font-black font-mono text-slate-100 mt-0.5">#{String(pedido.nroPedido).replace('#', '')}</h2>
               <p className="text-xs text-slate-400 mt-1">Fecha de emisión: {pedido.fecha}</p>
             </div>
             <div>
