@@ -13,13 +13,9 @@ interface Mensaje {
 }
 
 const EMOJIS_POPULARES = [
-  // Materiales pesados y construcción
   '🧱', '🏗️', '🪨', '🏚️', '🛠️', '⛏️', '⚒️', '🔩', '⚙️', '⛓️', '📏', '📐',
-  // Logística y transporte
   '🚚', '🚛', '🚜', '📦', '📋', '📍', '🗺️', '⏱️', '🔑',
-  // Dinero y estados
   '💰', '💵', '💳', '🧾', '📊', '📈', '✔️', '❌', '⚠️', '🚨', '⚡', '🔥',
-  // Expresiones y respuestas rápidas
   '👍', '👎', '🤝', '👏', '🙌', '💪', '🙏', '👀', '💬', '📢', '⏰', '✨'
 ];
 
@@ -34,7 +30,6 @@ export default function ChatInterno() {
   const [mostrarEmojis, setMostrarEmojis] = useState(false);
   const [mensajeEditandoId, setMensajeEditandoId] = useState<string | null>(null);
   
-  // Estados para el control del zumbido y mensajes no leídos
   const [hayZumbidoActivo, setHayZumbidoActivo] = useState(false);
   const [ultimoIdLeido, setUltimoIdLeido] = useState<string | null>(null);
   
@@ -57,12 +52,13 @@ export default function ChatInterno() {
     }
   }, []);
 
-  // Detectar nuevos mensajes y zumbidos
+  // Detectar zumbidos SOLO si fueron enviados por OTRO usuario
   useEffect(() => {
-    if (mensajesChat.length > 0) {
+    if (mensajesChat.length > 0 && nombreUsuario) {
       const ultimoMsg = mensajesChat[mensajesChat.length - 1];
       
-      if (ultimoMsg.esZumbido && ultimoMsg.id !== ultimoIdLeido) {
+      // Condición clave: Es zumbido, NO lo envié yo, y es más nuevo que el último leído
+      if (ultimoMsg.esZumbido && ultimoMsg.remitente !== nombreUsuario && ultimoMsg.id !== ultimoIdLeido) {
         setHayZumbidoActivo(true);
         reproducirSonidoZumbido();
         if (!abierto) {
@@ -70,9 +66,8 @@ export default function ChatInterno() {
         }
       }
     }
-  }, [mensajesChat, abierto, ultimoIdLeido]);
+  }, [mensajesChat, abierto, ultimoIdLeido, nombreUsuario]);
 
-  // Manejar apertura del chat (marca todo como leído y frena zumbido)
   const abrirChat = () => {
     setAbierto(true);
     detenerZumbido();
@@ -125,6 +120,13 @@ export default function ChatInterno() {
         console.error(e);
       }
     }
+    if (mensajesChat.length > 0) {
+      const idUltimo = mensajesChat[mensajesChat.length - 1].id;
+      setUltimoIdLeido(idUltimo);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('corralon_ultimo_id_leido', idUltimo);
+      }
+    }
   };
 
   useEffect(() => {
@@ -133,7 +135,6 @@ export default function ChatInterno() {
     }
   }, [mensajesChat, abierto]);
 
-  // Calcular mensajes no leídos para la burbuja roja
   const mensajesNoLeidos = mensajesChat.filter((m: any) => {
     if (!ultimoIdLeido) return true;
     const indexUltimo = mensajesChat.findIndex((msg: any) => msg.id === ultimoIdLeido);
@@ -351,7 +352,7 @@ export default function ChatInterno() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Selector de Emojis Ampliado y Temático */}
+              {/* Selector de Emojis */}
               {mostrarEmojis && (
                 <div className="bg-slate-900 border-t border-slate-800 p-2.5 grid grid-cols-8 gap-1.5 text-center max-h-40 overflow-y-auto">
                   {EMOJIS_POPULARES.map((emoji, idx) => (
