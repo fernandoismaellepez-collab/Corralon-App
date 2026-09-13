@@ -9,8 +9,8 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isLoginRoute = path.startsWith('/login')
 
-  // EXCEPCIÓN: Permitir acceso totalmente libre y público a seguimiento y presupuesto online
-  if (path.startsWith('/seguimiento') || path.startsWith('/presupuesto-online')) {
+  // EXCEPCIÓN: Permitir acceso totalmente libre y público a seguimiento, presupuesto online y la app móvil
+  if (path.startsWith('/seguimiento') || path.startsWith('/presupuesto-online') || path.startsWith('/movil')) {
     return supabaseResponse
   }
 
