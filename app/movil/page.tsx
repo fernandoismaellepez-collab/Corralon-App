@@ -2,20 +2,18 @@
 export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
-import { Search, Lock, ShieldCheck, Package, DollarSign, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Search, Lock, ShieldCheck, RefreshCw } from 'lucide-react';
 
 export default function ConsultaMovilPage() {
-  // Estado de seguridad por PIN (puedes cambiar el PIN aquí mismo)
   const [autenticado, setAutenticado] = useState(false);
   const [pin, setPin] = useState('');
   
-  // Estados de búsqueda
   const [busqueda, setBusqueda] = useState('');
   const [resultados, setResultados] = useState<any[]>([]);
   const [cargando, setCargando] = useState(false);
   const [buscado, setBuscado] = useState(false);
 
-  const PIN_CORRECTO = '1234'; // Puedes cambiar este PIN de acceso para tus repartidores
+  const PIN_CORRECTO = '1234'; // PIN de los repartidores
 
   const verificarPin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +48,6 @@ export default function ConsultaMovilPage() {
     }
   };
 
-  // Si no está autenticado, mostramos la pantalla de bloqueo por PIN
   if (!autenticado) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
@@ -72,6 +69,7 @@ export default function ConsultaMovilPage() {
               placeholder="••••"
               className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 text-center text-2xl font-mono tracking-widest text-amber-400 focus:outline-none focus:border-amber-500"
               required
+              autoFocus
             />
             <button
               type="submit"
@@ -85,12 +83,9 @@ export default function ConsultaMovilPage() {
     );
   }
 
-  // Pantalla principal de consulta móvil
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 max-w-md mx-auto flex flex-col justify-between">
       <div className="space-y-6">
-        
-        {/* Header Superior */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
@@ -109,14 +104,13 @@ export default function ConsultaMovilPage() {
           </button>
         </div>
 
-        {/* Buscador Gigante para Celular */}
         <form onSubmit={buscarProducto} className="space-y-3">
           <div className="relative">
             <input
               type="text"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="¿Qué producto buscas? (ej. cemento, varilla)"
+              placeholder="¿Qué producto buscas? (ej. cemento)"
               className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 shadow-inner"
               autoFocus
             />
@@ -131,7 +125,6 @@ export default function ConsultaMovilPage() {
           </button>
         </form>
 
-        {/* Resultados de Búsqueda */}
         <div className="space-y-3 pt-2">
           {cargando ? (
             <div className="text-center py-12 text-slate-500 text-xs flex flex-col items-center gap-2">
@@ -164,10 +157,8 @@ export default function ConsultaMovilPage() {
             })
           )}
         </div>
-
       </div>
 
-      {/* Footer minimalista */}
       <div className="text-center pt-6 pb-2 text-[10px] text-slate-600 font-mono">
         Sistema Interno Corralón • Acceso Restringido
       </div>
