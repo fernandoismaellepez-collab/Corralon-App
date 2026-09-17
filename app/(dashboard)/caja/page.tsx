@@ -233,9 +233,9 @@ export default function CajaPage() {
     return true; // 'todos'
   });
 
-  // Función para exportar todo el histórico de movimientos a CSV
+  // Función para exportar todo el histórico de movimientos a CSV (compatible con Excel: separador ';' y UTF-8 BOM)
   const exportarHistorialCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,Fecha,Tipo,Cliente / Concepto,Modo de Pago,Monto\n";
+    let csvContent = "\uFEFFFecha;Tipo;Cliente / Concepto;Modo de Pago;Monto\n";
 
     // Agregar ventas de pedidos
     ventasPedidos.forEach(p => {
@@ -244,7 +244,7 @@ export default function CajaPage() {
       const cliente = `"${(p.nombreCliente || 'Cliente General').replace(/"/g, '""')}"`;
       const modo = clasificarMedioPago(p);
       const monto = Number(p.total || 0);
-      csvContent += `${fecha},${tipo},${cliente},${modo},${monto}\n`;
+      csvContent += `${fecha};${tipo};${cliente};${modo};${monto}\n`;
     });
 
     // Agregar movimientos manuales
@@ -254,12 +254,13 @@ export default function CajaPage() {
       const concepto = `"${(m.descripcion || '').replace(/"/g, '""')}"`;
       const modo = m.medio_pago;
       const monto = m.tipo === 'ingreso' ? Number(m.monto) : -Number(m.monto);
-      csvContent += `${fecha},${tipo},${concepto},${modo},${monto}\n`;
+      csvContent += `${fecha};${tipo};${concepto};${modo};${monto}\n`;
     });
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `historial_caja_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
