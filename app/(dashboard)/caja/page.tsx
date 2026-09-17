@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { DollarSign, Wallet, ArrowUpRight, ArrowDownLeft, Lock, Unlock, PlusCircle, CheckCircle, AlertCircle, RefreshCw, Calculator, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { DollarSign, Wallet, ArrowUpRight, ArrowDownLeft, Lock, Unlock, PlusCircle, CheckCircle, AlertCircle, RefreshCw, Calculator, ShieldCheck, ShoppingCart, Download, Trash2 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rlrxixsceubedsrnwfkg.supabase.co';
@@ -151,6 +151,24 @@ export default function CajaPage() {
     }
   };
 
+  // Función para eliminar un movimiento manual
+  const eliminarMovimientoManual = async (movId: string) => {
+    if (!confirm('¿Estás seguro de eliminar este movimiento manual?')) return;
+    try {
+      const { error } = await supabase
+        .from('caja_movimientos')
+        .delete()
+        .eq('id', movId);
+
+      if (error) throw error;
+      if (turnoActual) {
+        await cargarMovimientosYVentas(turnoActual.id, turnoActual.fecha_apertura);
+      }
+    } catch (err: any) {
+      alert('Error al eliminar movimiento: ' + err.message);
+    }
+  };
+
   // --- CÁLCULOS AUTOMÁTICOS ROBUSTOS PARA CLASIFICAR MEDIO DE PAGO ---
   const clasificarMedioPago = (p: any) => {
     const textoPago = [
@@ -215,6 +233,39 @@ export default function CajaPage() {
     return true; // 'todos'
   });
 
+  // Función para exportar todo el histórico de movimientos a CSV
+  const exportarHistorialCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,Fecha,Tipo,Cliente / Concepto,Modo de Pago,Monto\n";
+
+    // Agregar ventas de pedidos
+    ventasPedidos.forEach(p => {
+      const fecha = new Date(p.fecha || p.creado_en || Date.now()).toLocaleString();
+      const tipo = "Venta Pedido";
+      const cliente = `"${(p.nombreCliente || 'Cliente General').replace(/"/g, '""')}"`;
+      const modo = clasificarMedioPago(p);
+      const monto = Number(p.total || 0);
+      csvContent += `${fecha},${tipo},${cliente},${modo},${monto}\n`;
+    });
+
+    // Agregar movimientos manuales
+    movimientos.forEach(m => {
+      const fecha = new Date(m.creado_en || Date.now()).toLocaleString();
+      const tipo = `Movimiento Manual (${m.tipo})`;
+      const concepto = `"${(m.descripcion || '').replace(/"/g, '""')}"`;
+      const modo = m.medio_pago;
+      const monto = m.tipo === 'ingreso' ? Number(m.monto) : -Number(m.monto);
+      csvContent += `${fecha},${tipo},${concepto},${modo},${monto}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `historial_caja_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const realizarCierreCaja = async () => {
     if (!turnoActual) return;
 
@@ -265,12 +316,22 @@ export default function CajaPage() {
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Caja Diaria y Auditoría</h1>
           </div>
-          <button
-            onClick={verificarTurnoActivo}
-            className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer flex items-center gap-2 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Sincronizar Ventas y Caja
-          </button>
+          <div className="flex items-center gap-3">
+            {turnoActual && (
+              <button
+                onClick={exportarHistorialCSV}
+                className="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Exportar Historial (CSV)
+              </button>
+            )}
+            <button
+              onClick={verificarTurnoActivo}
+              className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer flex items-center gap-2 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Sincronizar Ventas y Caja
+            </button>
+          </div>
         </div>
 
         {!turnoActual ? (
@@ -463,9 +524,18 @@ export default function CajaPage() {
                           <span className="text-white font-medium">{m.descripcion}</span>
                           <span className="block text-[9px] text-slate-400 capitalize">{m.medio_pago} • {m.tipo}</span>
                         </div>
-                        <span className={`font-mono font-bold ${m.tipo === 'ingreso' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {m.tipo === 'ingreso' ? '+' : '-'}${Number(m.monto).toLocaleString('es-AR')}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className={`font-mono font-bold ${m.tipo === 'ingreso' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {m.tipo === 'ingreso' ? '+' : '-'}${Number(m.monto).toLocaleString('es-AR')}
+                          </span>
+                          <button
+                            onClick={() => eliminarMovimientoManual(m.id)}
+                            className="text-rose-400 hover:text-rose-300 transition-colors cursor-pointer p-1"
+                            title="Eliminar movimiento"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

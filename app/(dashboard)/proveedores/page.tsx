@@ -14,7 +14,7 @@ function ProveedoresContent() {
   }, []);
 
   const { proveedores, agregarProveedor, eliminarProveedor, agregarOActualizarPrecioProducto } = useProveedores();
-  const { productos, agregarProveedor: agregarProveedorInventario, eliminarProveedor: eliminarProveedorInventario } = useInventario() as any;
+  const { productos, agregarProveedor: agregarProveedorInventario } = useInventario() as any;
 
   const [busqueda, setBusqueda] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -36,7 +36,7 @@ function ProveedoresContent() {
   // Sincronización en tiempo real
   useEffect(() => {
     if (proveedorSeleccionado) {
-      const actualizado = proveedores.find(p => p.idProveedor === proveedorSeleccionado.idProveedor);
+      const actualizado = (proveedores || []).find((p: Proveedor) => p.idProveedor === proveedorSeleccionado.idProveedor);
       if (actualizado) {
         setProveedorSeleccionado(actualizado);
       }
@@ -47,16 +47,18 @@ function ProveedoresContent() {
     return null;
   }
 
-  const proveedoresFiltrados = proveedores.filter(p =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    (p.direccion && p.direccion.toLowerCase().includes(busqueda.toLowerCase()))
-  );
+  // Sin filtros restrictivos: muestra todos los proveedores reales de la base de datos
+  const proveedoresFiltrados = (proveedores || []).filter((p: Proveedor) => {
+    return (
+      p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      (p.direccion && p.direccion.toLowerCase().includes(busqueda.toLowerCase()))
+    );
+  });
 
   const handleSubmitProveedor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) return;
 
-    // 1. Agregamos al ProveedoresContext local
     agregarProveedor({
       nombre,
       telefono,
@@ -67,7 +69,6 @@ function ProveedoresContent() {
       observaciones
     });
 
-    // 2. Sincronizamos automáticamente con el InventarioContext global (para que aparezca en Compras / SOLPES)
     if (agregarProveedorInventario) {
       agregarProveedorInventario({
         nombre,
@@ -85,11 +86,6 @@ function ProveedoresContent() {
     setEmail('');
     setObservaciones('');
     setModalAbierto(false);
-  };
-
-  const handleEliminar = (idProv: string, nombreProv: string) => {
-    eliminarProveedor(idProv);
-    // Si deseas limpiar también del inventario general por nombre o ID, puedes agregarlo aquí
   };
 
   const handleAsociarPrecio = (e: React.FormEvent) => {
@@ -162,7 +158,7 @@ function ProveedoresContent() {
                 </td>
               </tr>
             ) : (
-              proveedoresFiltrados.map((prov) => (
+              proveedoresFiltrados.map((prov: Proveedor) => (
                 <tr key={prov.idProveedor} className="hover:bg-slate-800/40 transition-colors">
                   <td className="px-6 py-4">
                     <span className="text-xs font-mono bg-slate-950 text-amber-500 px-2.5 py-1 rounded border border-slate-800 mr-2 font-bold">
