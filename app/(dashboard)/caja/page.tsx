@@ -14,22 +14,19 @@ export default function CajaPage() {
   const [ultimoTurnoCerrado, setUltimoTurnoCerrado] = useState<any>(null);
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [ventasPedidos, setVentasPedidos] = useState<any[]>([]);
+  const [todosLosPedidosDebug, setTodosLosPedidosDebug] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  // Estado para filtrar las ventas automáticas visualmente
   const [filtroVentas, setFiltroVentas] = useState<'todos' | 'efectivo' | 'transferencia'>('todos');
 
-  // Estados para apertura
   const [operador, setOperador] = useState('Operador Corralón');
   const [montoInicial, setMontoInicial] = useState<number>(10000);
   
-  // Estados para movimiento manual (gasto/ingreso extra)
   const [tipoMov, setTipoMov] = useState<'ingreso' | 'egreso'>('egreso');
   const [medioPagoMov, setMedioPagoMov] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [montoMov, setMontoMov] = useState<number>(0);
   const [descMov, setDescMov] = useState('');
 
-  // Estado para cierre (Arqueo)
   const [montoDeclarado, setMontoDeclarado] = useState<number>(0);
   const [modalCierreAbierto, setModalCierreAbierto] = useState(false);
 
@@ -40,7 +37,6 @@ export default function CajaPage() {
   const verificarTurnoActivo = async () => {
     setCargando(true);
     try {
-      // 1. Buscar turno abierto actual
       const { data: turnosAbiertos } = await supabase
         .from('caja_turnos')
         .select('*')
@@ -48,7 +44,6 @@ export default function CajaPage() {
         .order('fecha_apertura', { ascending: false })
         .limit(1);
 
-      // 2. Buscar el último turno cerrado (para métricas históricas y heredar saldos)
       const { data: turnosCerrados } = await supabase
         .from('caja_turnos')
         .select('*')
@@ -72,7 +67,6 @@ export default function CajaPage() {
         setTurnoActual(null);
         setMovimientos([]);
         setVentasPedidos([]);
-        // Pre-cargar por defecto el efectivo declarado del día anterior como propuesta para abrir la caja nueva
         if (ultimoCierre) {
           setMontoInicial(Number(ultimoCierre.monto_declarado_cierre || 0));
         }
@@ -84,7 +78,6 @@ export default function CajaPage() {
     }
   };
 
-  // --- CLASIFICACIÓN DE MEDIO DE PAGO ---
   const clasificarMedioPago = (p: any) => {
     const textoPago = [
       p.medioPago,
@@ -112,7 +105,6 @@ export default function CajaPage() {
 
   const cargarMovimientosYVentas = async (turnoId: string, fechaAperturaTurno: string) => {
     try {
-      // 1. Cargar movimientos manuales de la tabla caja_movimientos
       const { data: movData } = await supabase
         .from('caja_movimientos')
         .select('*')
@@ -121,7 +113,6 @@ export default function CajaPage() {
 
       if (movData) setMovimientos(movData);
 
-      // 2. Cargar ventas automáticas desde la estructura JSON de app_data (id = 'pedidos')
       const { data: appData, error: appError } = await supabase
         .from('app_data')
         .select('payload')
@@ -130,21 +121,26 @@ export default function CajaPage() {
 
       if (!appError && appData?.payload) {
         const todosLosPedidos = appData.payload || [];
-        const fechaInicioTurno = new Date(fechaAperturaTurno).getTime();
+        setTodosLosPedidosDebug(todosLosPedidos);
+        
+        const hoyStr = new Date().toISOString().slice(0, 10);
 
         const ventasDelTurno = todosLosPedidos.filter((p: any) => {
-          const fechaPedido = new Date(p.fecha || p.creado_en || Date.now()).getTime();
-          if (fechaPedido < fechaInicioTurno) return false;
+          const fechaBruta = p.fecha || p.creado_en || p.createdAt || p.fecha_creacion || '';
+          const fechaPedidoStr = String(fechaBruta).slice(0, 10);
 
-          const esTransferencia = clasificarMedioPago(p) === 'transferencia';
-          if (esTransferencia) return true;
-
-          const estado = String(p.estado || p.status || '').trim().toLowerCase();
-          if (estado.includes('pendiente') || estado.includes('preparado') || estado.includes('prep')) {
+          if (fechaPedidoStr !== '' && fechaPedidoStr !== hoyStr && fechaPedidoStr < hoyStr) {
             return false;
           }
 
-          return estado === 'entregado' || estado.includes('entregado') || estado === '';
+          const esTransferencia = clasificarMedioPago(p) === 'transferencia';
+
+          if (esTransferencia) {
+            return true;
+          }
+
+          const estado = String(p.estado || p.status || '').trim().toLowerCase();
+          return estado === 'entregado' || estado.includes('entregado');
         });
 
         setVentasPedidos(ventasDelTurno);
@@ -208,7 +204,6 @@ export default function CajaPage() {
     }
   };
 
-  // Función para eliminar un movimiento manual
   const eliminarMovimientoManual = async (movId: string) => {
     if (!confirm('¿Estás seguro de eliminar este movimiento manual?')) return;
     try {
@@ -226,17 +221,14 @@ export default function CajaPage() {
     }
   };
 
-  // 1. Total Efectivo por Ventas de Pedidos
   const totalEfectivoPedidos = ventasPedidos.reduce((acc, p) => {
     return clasificarMedioPago(p) === 'efectivo' ? acc + Number(p.total || 0) : acc;
   }, 0);
 
-  // 2. Total Transferencia por Ventas de Pedidos
   const totalTransferenciaPedidos = ventasPedidos.reduce((acc, p) => {
     return clasificarMedioPago(p) === 'transferencia' ? acc + Number(p.total || 0) : acc;
   }, 0);
 
-  // 3. Movimientos manuales en Efectivo
   const totalEfectivoMovimientos = movimientos.reduce((acc, m) => {
     if (m.medio_pago === 'efectivo') {
       return m.tipo === 'ingreso' ? acc + Number(m.monto) : acc - Number(m.monto);
@@ -244,7 +236,6 @@ export default function CajaPage() {
     return acc;
   }, 0);
 
-  // 4. Movimientos manuales en Transferencia (Aquí se restan gastos como gasoil, etc.)
   const totalTransferenciaMovimientos = movimientos.reduce((acc, m) => {
     if (m.medio_pago === 'transferencia') {
       return m.tipo === 'ingreso' ? acc + Number(m.monto) : acc - Number(m.monto);
@@ -252,22 +243,18 @@ export default function CajaPage() {
     return acc;
   }, 0);
 
-  // Base inicial de transferencias heredada del cierre anterior (si existe)
   const baseTransferenciasAnterior = Number(ultimoTurnoCerrado?.total_transferencia_sistema || 0);
 
-  // Totales finales unificados
   const efectivoEsperadoEnCaja = Number(turnoActual?.monto_inicial || 0) + totalEfectivoPedidos + totalEfectivoMovimientos;
   const totalTransferenciasGeneral = baseTransferenciasAnterior + totalTransferenciaPedidos + totalTransferenciaMovimientos;
 
-  // Lista de ventas filtrada según selección del usuario
   const ventasFiltradas = ventasPedidos.filter(p => {
     const tipo = clasificarMedioPago(p);
     if (filtroVentas === 'efectivo') return tipo === 'efectivo';
     if (filtroVentas === 'transferencia') return tipo === 'transferencia';
-    return true; // 'todos'
+    return true;
   });
 
-  // --- EXPORTAR HISTORIAL COMPLETO A CSV ---
   const exportarHistorialCSV = async () => {
     try {
       let csvContent = "\uFEFFTurno ID;Fecha/Hora;Tipo Registro;Operador;Cliente / Concepto;Modo de Pago;Monto\n";
@@ -377,7 +364,6 @@ export default function CajaPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 sm:p-10">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
           <div>
             <div className="flex items-center gap-2 text-amber-500 font-mono text-xs uppercase tracking-wider mb-1">
@@ -401,7 +387,12 @@ export default function CajaPage() {
           </div>
         </div>
 
-        {/* 1. SECCIÓN HISTÓRICA: MÉTRICAS DEL CIERRE ANTERIOR */}
+        {/* Panel de Depuración de Pedidos */}
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl text-xs space-y-2">
+          <span className="text-amber-400 font-bold uppercase tracking-wider">Depuración de Conexión y Pedidos:</span>
+          <p className="text-slate-300">Total de pedidos leídos en Supabase: <span className="font-mono font-bold text-white">{todosLosPedidosDebug.length}</span> | Pedidos filtrados para este turno: <span className="font-mono font-bold text-emerald-400">{ventasPedidos.length}</span></p>
+        </div>
+
         {ultimoTurnoCerrado && (
           <div className="bg-slate-900/80 border border-slate-800/80 p-5 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
@@ -438,14 +429,13 @@ export default function CajaPage() {
         )}
 
         {!turnoActual ? (
-          /* PANTALLA DE APERTURA DE NUEVO TURNO */
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-lg mx-auto shadow-2xl space-y-6">
             <div className="text-center space-y-2">
               <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-500">
                 <Lock className="w-7 h-7" />
               </div>
               <h2 className="text-xl font-bold text-white">Abrir Caja del Día / Nuevo Turno</h2>
-              <p className="text-xs text-slate-400">El fondo inicial de efectivo se cargó automáticamente con el saldo declarado del cierre anterior (puedes ajustarlo si es necesario).</p>
+              <p className="text-xs text-slate-400">El fondo inicial de efectivo se cargó automáticamente con el saldo declarado del cierre anterior.</p>
             </div>
 
             <form onSubmit={abrirCaja} className="space-y-4">
@@ -480,10 +470,8 @@ export default function CajaPage() {
             </form>
           </div>
         ) : (
-          /* PANEL DE CAJA ABIERTA (DÍA ACTUAL EN VIVO) */
           <div className="space-y-8">
             
-            {/* Tarjetas de Resumen en Tiempo Real con Saldos Operativos Actualizados */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-1">
                 <span className="text-[10px] font-mono text-slate-400 uppercase">Fondo Inicial Actual</span>
@@ -520,17 +508,14 @@ export default function CajaPage() {
               </div>
             </div>
 
-            {/* Dos Columnas: Ventas Automáticas de Pedidos + Movimientos Manuales (Gastos) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               
-              {/* Columna Izquierda: Ventas Automáticas desde Pedidos con Filtro */}
               <div className="lg:col-span-6 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                   <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                     <ShoppingCart className="w-4 h-4" /> Ventas del Día ({ventasPedidos.length})
                   </h2>
 
-                  {/* Botones de Filtro por Medio de Pago */}
                   <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px]">
                     <button
                       onClick={() => setFiltroVentas('todos')}
@@ -583,7 +568,6 @@ export default function CajaPage() {
                 </div>
               </div>
 
-              {/* Columna Derecha: Registrar Movimiento Manual (Permite descontar de Transferencia o Efectivo) */}
               <div className="lg:col-span-6 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-5">
                 <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                   <PlusCircle className="w-4 h-4" /> Registrar Gasto o Ingreso Extra
@@ -650,7 +634,6 @@ export default function CajaPage() {
           </div>
         )}
 
-        {/* MODAL DE ARQUEO Y CIERRE */}
         {modalCierreAbierto && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-slate-900 border border-slate-800 w-full max-w-md p-6 rounded-3xl shadow-2xl space-y-6">
