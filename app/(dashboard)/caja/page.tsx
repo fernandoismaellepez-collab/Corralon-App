@@ -62,6 +62,32 @@ export default function CajaPage() {
     }
   };
 
+  // --- CLASIFICACIÓN DE MEDIO DE PAGO ---
+  const clasificarMedioPago = (p: any) => {
+    const textoPago = [
+      p.medioPago,
+      p.metodoPago,
+      p.pago,
+      p.formaPago,
+      p.tipoPago,
+      p.observaciones,
+      p.obs
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if (
+      textoPago.includes('transferencia') || 
+      textoPago.includes('transf') || 
+      textoPago.includes('banco') || 
+      textoPago.includes('mp') || 
+      textoPago.includes('mercado pago') ||
+      textoPago.includes('tarjeta')
+    ) {
+      return 'transferencia';
+    }
+    
+    return 'efectivo';
+  };
+
   const cargarMovimientosYVentas = async (turnoId: string, fechaAperturaTurno: string) => {
     try {
       // 1. Cargar movimientos manuales de la tabla caja_movimientos
@@ -87,7 +113,22 @@ export default function CajaPage() {
         // Filtramos pedidos generados a partir de la apertura de caja
         const ventasDelTurno = todosLosPedidos.filter((p: any) => {
           const fechaPedido = new Date(p.fecha || p.creado_en || Date.now()).getTime();
-          return fechaPedido >= fechaInicioTurno;
+          if (fechaPedido < fechaInicioTurno) return false;
+
+          const esTransferencia = clasificarMedioPago(p) === 'transferencia';
+
+          // Si es transferencia, pasa directamente (ya está acreditada)
+          if (esTransferencia) {
+            return true;
+          }
+
+          // Si es efectivo, exigimos que esté entregado / no esté pendiente ni preparado
+          const estado = String(p.estado || p.status || '').trim().toLowerCase();
+          if (estado.includes('pendiente') || estado.includes('preparado') || estado.includes('prep')) {
+            return false;
+          }
+
+          return estado === 'entregado' || estado.includes('entregado') || estado === '';
         });
 
         setVentasPedidos(ventasDelTurno);
@@ -169,32 +210,6 @@ export default function CajaPage() {
     }
   };
 
-  // --- CÁLCULOS AUTOMÁTICOS ROBUSTOS PARA CLASIFICAR MEDIO DE PAGO ---
-  const clasificarMedioPago = (p: any) => {
-    const textoPago = [
-      p.medioPago,
-      p.metodoPago,
-      p.pago,
-      p.formaPago,
-      p.tipoPago,
-      p.observaciones,
-      p.obs
-    ].filter(Boolean).join(' ').toLowerCase();
-
-    if (
-      textoPago.includes('transferencia') || 
-      textoPago.includes('transf') || 
-      textoPago.includes('banco') || 
-      textoPago.includes('mp') || 
-      textoPago.includes('mercado pago') ||
-      textoPago.includes('tarjeta')
-    ) {
-      return 'transferencia';
-    }
-    
-    return 'efectivo';
-  };
-
   // 1. Total Efectivo por Ventas de Pedidos
   const totalEfectivoPedidos = ventasPedidos.reduce((acc, p) => {
     return clasificarMedioPago(p) === 'efectivo' ? acc + Number(p.total || 0) : acc;
@@ -233,11 +248,10 @@ export default function CajaPage() {
     return true; // 'todos'
   });
 
-  // Función para exportar todo el histórico de movimientos a CSV (compatible con Excel: separador ';' y UTF-8 BOM)
+  // Función para exportar todo el histórico de movimientos a CSV
   const exportarHistorialCSV = () => {
     let csvContent = "\uFEFFFecha;Tipo;Cliente / Concepto;Modo de Pago;Monto\n";
 
-    // Agregar ventas de pedidos
     ventasPedidos.forEach(p => {
       const fecha = new Date(p.fecha || p.creado_en || Date.now()).toLocaleString();
       const tipo = "Venta Pedido";
@@ -247,7 +261,6 @@ export default function CajaPage() {
       csvContent += `${fecha};${tipo};${cliente};${modo};${monto}\n`;
     });
 
-    // Agregar movimientos manuales
     movimientos.forEach(m => {
       const fecha = new Date(m.creado_en || Date.now()).toLocaleString();
       const tipo = `Movimiento Manual (${m.tipo})`;
