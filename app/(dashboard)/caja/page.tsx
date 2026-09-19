@@ -103,6 +103,16 @@ export default function CajaPage() {
     return 'efectivo';
   };
 
+  const evaluarPedidoPerteneceADia = (p: any, fechaObjetivoStr: string) => {
+    const fechaBruta = p.fecha || p.creado_en || p.createdAt || p.fecha_creacion || '';
+    const fechaPedidoStr = String(fechaBruta).slice(0, 10);
+    
+    const progBruta = p.prog || p.fechaProgramada || p.programadoPara || '';
+    const progStr = String(progBruta).slice(0, 10);
+
+    return (fechaPedidoStr === fechaObjetivoStr) || (progStr === fechaObjetivoStr);
+  };
+
   const cargarMovimientosYVentas = async (turnoId: string, fechaAperturaTurno: string) => {
     try {
       const { data: movData } = await supabase
@@ -123,15 +133,11 @@ export default function CajaPage() {
         const todosLosPedidos = appData.payload || [];
         setTodosLosPedidosDebug(todosLosPedidos);
         
-        const hoyStr = new Date().toISOString().slice(0, 10);
+        const hoyStr = new Date(fechaAperturaTurno).toISOString().slice(0, 10);
 
         const ventasDelTurno = todosLosPedidos.filter((p: any) => {
-          const fechaBruta = p.fecha || p.creado_en || p.createdAt || p.fecha_creacion || '';
-          const fechaPedidoStr = String(fechaBruta).slice(0, 10);
-
-          if (fechaPedidoStr !== '' && fechaPedidoStr !== hoyStr && fechaPedidoStr < hoyStr) {
-            return false;
-          }
+          const perteneceHoy = evaluarPedidoPerteneceADia(p, hoyStr);
+          if (!perteneceHoy) return false;
 
           const esTransferencia = clasificarMedioPago(p) === 'transferencia';
 
@@ -279,6 +285,7 @@ export default function CajaPage() {
       if (todosLosTurnos) {
         todosLosTurnos.forEach(turno => {
           const fechaTurnoStr = new Date(turno.fecha_apertura).toLocaleString();
+          const fechaTurnoIso = new Date(turno.fecha_apertura).toISOString().slice(0, 10);
           const operadorTurno = turno.operador || 'Operador';
 
           csvContent += `${turno.id};${fechaTurnoStr};Fondo Inicial;${operadorTurno};Fondo Inicial de Caja;efectivo;${turno.monto_inicial}\n`;
@@ -290,12 +297,8 @@ export default function CajaPage() {
             csvContent += `${turno.id};${fechaMov};Movimiento Manual (${m.tipo});${operadorTurno};"${(m.descripcion || '').replace(/"/g, '""')}";${m.medio_pago};${montoReal}\n`;
           });
 
-          const inicioT = new Date(turno.fecha_apertura).getTime();
-          const finT = turno.fecha_cierre ? new Date(turno.fecha_cierre).getTime() : Date.now();
-
           const pedidosTurno = todosLosPedidos.filter((p: any) => {
-            const fP = new Date(p.fecha || p.creado_en || Date.now()).getTime();
-            return fP >= inicioT && fP <= finT;
+            return evaluarPedidoPerteneceADia(p, fechaTurnoIso);
           });
 
           pedidosTurno.forEach((p: any) => {
