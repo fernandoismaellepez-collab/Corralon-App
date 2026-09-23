@@ -2,11 +2,11 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { DollarSign, Wallet, ArrowUpRight, ArrowDownLeft, Lock, Unlock, PlusCircle, CheckCircle, AlertCircle, RefreshCw, Calculator, ShieldCheck, ShoppingCart, Download, Trash2, History } from 'lucide-react';
+import { DollarSign, Wallet, ArrowUpRight, ArrowDownLeft, Lock, Unlock, PlusCircle, CheckCircle, AlertCircle, RefreshCw, Calculator, ShieldCheck, ShoppingCart, Download, Trash2, History, Calendar, Edit3 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rlrxixsceubedsrnwfkg.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc';
+const supabaseUrl = 'https://rlrxixsceubedsrnwfkg.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function CajaPage() {
@@ -21,6 +21,7 @@ export default function CajaPage() {
 
   const [operador, setOperador] = useState('Operador Corralón');
   const [montoInicial, setMontoInicial] = useState<number>(10000);
+  const [saldoTransferenciaInicial, setSaldoTransferenciaInicial] = useState<number>(0);
   
   const [tipoMov, setTipoMov] = useState<'ingreso' | 'egreso'>('egreso');
   const [medioPagoMov, setMedioPagoMov] = useState<'efectivo' | 'transferencia'>('efectivo');
@@ -29,54 +30,12 @@ export default function CajaPage() {
 
   const [montoDeclarado, setMontoDeclarado] = useState<number>(0);
   const [modalCierreAbierto, setModalCierreAbierto] = useState(false);
+  const [editandoSaldoTransf, setEditandoSaldoTransf] = useState(false);
+  const [nuevoSaldoTransfEdit, setNuevoSaldoTransfEdit] = useState<number>(0);
 
   useEffect(() => {
     verificarTurnoActivo();
   }, []);
-
-  const verificarTurnoActivo = async () => {
-    setCargando(true);
-    try {
-      const { data: turnosAbiertos } = await supabase
-        .from('caja_turnos')
-        .select('*')
-        .eq('estado', 'abierta')
-        .order('fecha_apertura', { ascending: false })
-        .limit(1);
-
-      const { data: turnosCerrados } = await supabase
-        .from('caja_turnos')
-        .select('*')
-        .eq('estado', 'cerrada')
-        .order('fecha_cierre', { ascending: false })
-        .limit(1);
-
-      let ultimoCierre = null;
-      if (turnosCerrados && turnosCerrados.length > 0) {
-        ultimoCierre = turnosCerrados[0];
-        setUltimoTurnoCerrado(ultimoCierre);
-      } else {
-        setUltimoTurnoCerrado(null);
-      }
-
-      if (turnosAbiertos && turnosAbiertos.length > 0) {
-        const turno = turnosAbiertos[0];
-        setTurnoActual(turno);
-        await cargarMovimientosYVentas(turno.id, turno.fecha_apertura);
-      } else {
-        setTurnoActual(null);
-        setMovimientos([]);
-        setVentasPedidos([]);
-        if (ultimoCierre) {
-          setMontoInicial(Number(ultimoCierre.monto_declarado_cierre || 0));
-        }
-      }
-    } catch (err) {
-      console.error('Error al verificar turno:', err);
-    } finally {
-      setCargando(false);
-    }
-  };
 
   const clasificarMedioPago = (p: any) => {
     const textoPago = [
@@ -103,82 +62,144 @@ export default function CajaPage() {
     return 'efectivo';
   };
 
-  const evaluarPedidoPerteneceADia = (p: any, fechaObjetivoStr: string) => {
+  const obtenerFechaPedidoStr = (p: any) => {
     const fechaBruta = p.fecha || p.creado_en || p.createdAt || p.fecha_creacion || '';
-    const fechaPedidoStr = String(fechaBruta).slice(0, 10);
-    
     const progBruta = p.prog || p.fechaProgramada || p.programadoPara || '';
-    const progStr = String(progBruta).slice(0, 10);
-
-    return (fechaPedidoStr === fechaObjetivoStr) || (progStr === fechaObjetivoStr);
+    const strFecha = String(fechaBruta).slice(0, 10);
+    const strProg = String(progBruta).slice(0, 10);
+    return strFecha || strProg || new Date().toISOString().slice(0, 10);
   };
 
-  const cargarMovimientosYVentas = async (turnoId: string, fechaAperturaTurno: string) => {
+  const verificarTurnoActivo = async () => {
+    setCargando(true);
     try {
-      const { data: movData } = await supabase
-        .from('caja_movimientos')
-        .select('*')
-        .eq('turno_id', turnoId)
-        .order('creado_en', { ascending: false });
-
-      if (movData) setMovimientos(movData);
-
       const { data: appData, error: appError } = await supabase
         .from('app_data')
         .select('payload')
         .eq('id', 'pedidos')
         .single();
 
+      let pedidosCargados = [];
       if (!appError && appData?.payload) {
-        const todosLosPedidos = appData.payload || [];
-        setTodosLosPedidosDebug(todosLosPedidos);
-        
-        const hoyStr = new Date(fechaAperturaTurno).toISOString().slice(0, 10);
-
-        const ventasDelTurno = todosLosPedidos.filter((p: any) => {
-          const perteneceHoy = evaluarPedidoPerteneceADia(p, hoyStr);
-          if (!perteneceHoy) return false;
-
-          const esTransferencia = clasificarMedioPago(p) === 'transferencia';
-
-          if (esTransferencia) {
-            return true;
-          }
-
+        pedidosCargados = appData.payload.filter((p: any) => {
           const estado = String(p.estado || p.status || '').trim().toLowerCase();
-          return estado === 'entregado' || estado.includes('entregado');
+          return estado !== 'cancelado';
         });
-
-        setVentasPedidos(ventasDelTurno);
+        setVentasPedidos(pedidosCargados);
+        setTodosLosPedidosDebug(appData.payload);
       }
+
+      const { data: appTurnos } = await supabase
+        .from('app_data')
+        .select('payload')
+        .eq('id', 'caja_turnos_estado')
+        .single();
+
+      const turnosData = appTurnos?.payload || { turnoAbierto: null, ultimoCierre: null };
+      
+      setTurnoActual(turnosData.turnoAbierto || null);
+      setUltimoTurnoCerrado(turnosData.ultimoCierre || null);
+
+      if (turnosData.turnoAbierto?.saldo_transferencia_inicial !== undefined) {
+        setSaldoTransferenciaInicial(Number(turnosData.turnoAbierto.saldo_transferencia_inicial));
+      } else if (turnosData.ultimoCierre?.total_transferencia_sistema !== undefined) {
+        setSaldoTransferenciaInicial(Number(turnosData.ultimoCierre.total_transferencia_sistema));
+      } else {
+        setSaldoTransferenciaInicial(0);
+      }
+
+      if (turnosData.ultimoCierre?.monto_declarado_cierre) {
+        setMontoInicial(Number(turnosData.ultimoCierre.monto_declarado_cierre));
+      }
+
+      if (turnosData.turnoAbierto && turnosData.turnoAbierto.id) {
+        const { data: appMovs } = await supabase
+          .from('app_data')
+          .select('payload')
+          .eq('id', `caja_movimientos_${turnosData.turnoAbierto.id}`)
+          .single();
+        setMovimientos(appMovs?.payload || []);
+      } else {
+        setMovimientos([]);
+      }
+
     } catch (err) {
-      console.error('Error al cargar datos automáticos de ventas:', err);
+      console.error('Error al verificar turno:', err);
+    } finally {
+      setCargando(false);
     }
   };
 
   const abrirCaja = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase
-        .from('caja_turnos')
-        .insert([
-          {
-            operador: operador || 'Operador',
-            monto_inicial: Number(montoInicial),
-            total_efectivo_sistema: 0,
-            total_transferencia_sistema: 0,
-            estado: 'abierta'
-          }
-        ])
-        .select();
+      const nuevoTurno = {
+        id: 'turno_' + Date.now(),
+        operador: operador || 'Operador',
+        monto_inicial: Number(montoInicial),
+        saldo_transferencia_inicial: Number(saldoTransferenciaInicial),
+        fecha_apertura: new Date().toISOString(),
+        estado: 'abierta'
+      };
 
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setTurnoActual(data[0]);
-        await cargarMovimientosYVentas(data[0].id, data[0].fecha_apertura);
-      }
+      const { data: appTurnos } = await supabase
+        .from('app_data')
+        .select('payload')
+        .eq('id', 'caja_turnos_estado')
+        .single();
+
+      const historialCierres = appTurnos?.payload?.historialCierres || [];
+
+      await supabase
+        .from('app_data')
+        .upsert([{
+          id: 'caja_turnos_estado',
+          payload: {
+            turnoAbierto: nuevoTurno,
+            ultimoCierre: ultimoTurnoCerrado,
+            historialCierres
+          },
+          updated_at: new Date().toISOString()
+        }]);
+
+      setTurnoActual(nuevoTurno);
+      await verificarTurnoActivo();
     } catch (err: any) {
       alert('Error al abrir la caja: ' + err.message);
+    }
+  };
+
+  const actualizarSaldoTransferenciaManual = async () => {
+    if (!turnoActual) return;
+    try {
+      const turnoActualizado = {
+        ...turnoActual,
+        saldo_transferencia_inicial: Number(nuevoSaldoTransfEdit)
+      };
+
+      const { data: appTurnos } = await supabase
+        .from('app_data')
+        .select('payload')
+        .eq('id', 'caja_turnos_estado')
+        .single();
+
+      await supabase
+        .from('app_data')
+        .upsert([{
+          id: 'caja_turnos_estado',
+          payload: {
+            ...appTurnos?.payload,
+            turnoAbierto: turnoActualizado
+          },
+          updated_at: new Date().toISOString()
+        }]);
+
+      setTurnoActual(turnoActualizado);
+      setSaldoTransferenciaInicial(Number(nuevoSaldoTransfEdit));
+      setEditandoSaldoTransf(false);
+      alert('¡Saldo inicial de transferencia actualizado con éxito!');
+    } catch (err: any) {
+      alert('Error al actualizar saldo: ' + err.message);
     }
   };
 
@@ -190,21 +211,28 @@ export default function CajaPage() {
     }
 
     try {
-      const { error } = await supabase.from('caja_movimientos').insert([
-        {
-          turno_id: turnoActual.id,
-          tipo: tipoMov,
-          medio_pago: medioPagoMov,
-          monto: Number(montoMov),
-          descripcion: descMov.trim()
-        }
-      ]);
+      const nuevoMov = {
+        id: 'mov_' + Date.now(),
+        tipo: tipoMov,
+        medio_pago: medioPagoMov,
+        monto: Number(montoMov),
+        descripcion: descMov.trim(),
+        creado_en: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      const actualizados = [nuevoMov, ...movimientos];
+      
+      await supabase
+        .from('app_data')
+        .upsert([{
+          id: `caja_movimientos_${turnoActual.id}`,
+          payload: actualizados,
+          updated_at: new Date().toISOString()
+        }]);
 
+      setMovimientos(actualizados);
       setMontoMov(0);
       setDescMov('');
-      await cargarMovimientosYVentas(turnoActual.id, turnoActual.fecha_apertura);
     } catch (err: any) {
       alert('Error al registrar movimiento: ' + err.message);
     }
@@ -213,25 +241,37 @@ export default function CajaPage() {
   const eliminarMovimientoManual = async (movId: string) => {
     if (!confirm('¿Estás seguro de eliminar este movimiento manual?')) return;
     try {
-      const { error } = await supabase
-        .from('caja_movimientos')
-        .delete()
-        .eq('id', movId);
-
-      if (error) throw error;
+      const actualizados = movimientos.filter(m => m.id !== movId);
+      
       if (turnoActual) {
-        await cargarMovimientosYVentas(turnoActual.id, turnoActual.fecha_apertura);
+        await supabase
+          .from('app_data')
+          .upsert([{
+            id: `caja_movimientos_${turnoActual.id}`,
+            payload: actualizados,
+            updated_at: new Date().toISOString()
+          }]);
       }
+
+      setMovimientos(actualizados);
     } catch (err: any) {
       alert('Error al eliminar movimiento: ' + err.message);
     }
   };
 
-  const totalEfectivoPedidos = ventasPedidos.reduce((acc, p) => {
+  // Cálculos para el turno actual y fecha de hoy
+  const fechaHoyStr = new Date().toISOString().slice(0, 10);
+  
+  const ventasDelTurnoActual = ventasPedidos.filter(p => {
+    const fechaP = obtenerFechaPedidoStr(p);
+    return fechaP === fechaHoyStr;
+  });
+
+  const totalEfectivoPedidos = ventasDelTurnoActual.reduce((acc, p) => {
     return clasificarMedioPago(p) === 'efectivo' ? acc + Number(p.total || 0) : acc;
   }, 0);
 
-  const totalTransferenciaPedidos = ventasPedidos.reduce((acc, p) => {
+  const totalTransferenciaPedidos = ventasDelTurnoActual.reduce((acc, p) => {
     return clasificarMedioPago(p) === 'transferencia' ? acc + Number(p.total || 0) : acc;
   }, 0);
 
@@ -249,73 +289,46 @@ export default function CajaPage() {
     return acc;
   }, 0);
 
-  const baseTransferenciasAnterior = Number(ultimoTurnoCerrado?.total_transferencia_sistema || 0);
+  const baseTransferenciasAnterior = Number(turnoActual?.saldo_transferencia_inicial ?? saldoTransferenciaInicial);
 
   const efectivoEsperadoEnCaja = Number(turnoActual?.monto_inicial || 0) + totalEfectivoPedidos + totalEfectivoMovimientos;
   const totalTransferenciasGeneral = baseTransferenciasAnterior + totalTransferenciaPedidos + totalTransferenciaMovimientos;
 
-  const ventasFiltradas = ventasPedidos.filter(p => {
+  // Filtrado y Agrupamiento por Días para el Historial
+  const ventasFiltradasHistorial = ventasPedidos.filter(p => {
     const tipo = clasificarMedioPago(p);
     if (filtroVentas === 'efectivo') return tipo === 'efectivo';
     if (filtroVentas === 'transferencia') return tipo === 'transferencia';
     return true;
   });
 
+  const ventasAgrupadasPorDia = ventasFiltradasHistorial.reduce((acc: any, p: any) => {
+    const dia = obtenerFechaPedidoStr(p);
+    if (!acc[dia]) {
+      acc[dia] = [];
+    }
+    acc[dia].push(p);
+    return acc;
+  }, {});
+
+  const diasOrdenados = Object.keys(ventasAgrupadasPorDia).sort().reverse();
+
   const exportarHistorialCSV = async () => {
     try {
-      let csvContent = "\uFEFFTurno ID;Fecha/Hora;Tipo Registro;Operador;Cliente / Concepto;Modo de Pago;Monto\n";
-
-      const { data: todosLosTurnos } = await supabase
-        .from('caja_turnos')
-        .select('*')
-        .order('fecha_apertura', { ascending: false });
-
-      const { data: todosLosMovimientos } = await supabase
-        .from('caja_movimientos')
-        .select('*');
-
-      const { data: appData } = await supabase
-        .from('app_data')
-        .select('payload')
-        .eq('id', 'pedidos')
-        .single();
-
-      const todosLosPedidos = appData?.payload || [];
-
-      if (todosLosTurnos) {
-        todosLosTurnos.forEach(turno => {
-          const fechaTurnoStr = new Date(turno.fecha_apertura).toLocaleString();
-          const fechaTurnoIso = new Date(turno.fecha_apertura).toISOString().slice(0, 10);
-          const operadorTurno = turno.operador || 'Operador';
-
-          csvContent += `${turno.id};${fechaTurnoStr};Fondo Inicial;${operadorTurno};Fondo Inicial de Caja;efectivo;${turno.monto_inicial}\n`;
-
-          const movsTurno = (todosLosMovimientos || []).filter((m: any) => m.turno_id === turno.id);
-          movsTurno.forEach((m: any) => {
-            const fechaMov = new Date(m.creado_en || Date.now()).toLocaleString();
-            const montoReal = m.tipo === 'ingreso' ? Number(m.monto) : -Number(m.monto);
-            csvContent += `${turno.id};${fechaMov};Movimiento Manual (${m.tipo});${operadorTurno};"${(m.descripcion || '').replace(/"/g, '""')}";${m.medio_pago};${montoReal}\n`;
-          });
-
-          const pedidosTurno = todosLosPedidos.filter((p: any) => {
-            return evaluarPedidoPerteneceADia(p, fechaTurnoIso);
-          });
-
-          pedidosTurno.forEach((p: any) => {
-            const fechaP = new Date(p.fecha || p.creado_en || Date.now()).toLocaleString();
-            const cliente = `"${(p.nombreCliente || 'Cliente General').replace(/"/g, '""')}"`;
-            const modo = clasificarMedioPago(p);
-            const montoP = Number(p.total || 0);
-            csvContent += `${turno.id};${fechaP};Venta Pedido;${operadorTurno};${cliente};${modo};${montoP}\n`;
-          });
-        });
-      }
+      let csvContent = "\uFEFFFecha/Hora;Tipo Registro;Cliente / Concepto;Modo de Pago;Monto\n";
+      ventasPedidos.forEach((p: any) => {
+        const fechaP = new Date(p.fecha || p.creado_en || Date.now()).toLocaleString();
+        const cliente = `"${(p.nombreCliente || 'Cliente General').replace(/"/g, '""')}"`;
+        const modo = clasificarMedioPago(p);
+        const montoP = Number(p.total || 0);
+        csvContent += `${fechaP};Venta Pedido;${cliente};${modo};${montoP}\n`;
+      });
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `historial_completo_caja_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute("download", `historial_caja_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -330,25 +343,31 @@ export default function CajaPage() {
     const diferencia = Number(montoDeclarado) - efectivoEsperadoEnCaja;
 
     try {
-      const { error } = await supabase
-        .from('caja_turnos')
-        .update({
-          total_efectivo_sistema: efectivoEsperadoEnCaja,
-          total_transferencia_sistema: totalTransferenciasGeneral,
-          monto_declarado_cierre: Number(montoDeclarado),
-          diferencia: diferencia,
-          estado: 'cerrada',
-          fecha_cierre: new Date().toISOString()
-        })
-        .eq('id', turnoActual.id);
+      const turnoCerrado = {
+        ...turnoActual,
+        total_efectivo_sistema: efectivoEsperadoEnCaja,
+        total_transferencia_sistema: totalTransferenciasGeneral,
+        monto_declarado_cierre: Number(montoDeclarado),
+        diferencia: diferencia,
+        estado: 'cerrada',
+        fecha_cierre: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      await supabase
+        .from('app_data')
+        .upsert([{
+          id: 'caja_turnos_estado',
+          payload: {
+            turnoAbierto: null,
+            ultimoCierre: turnoCerrado
+          },
+          updated_at: new Date().toISOString()
+        }]);
 
       alert(`¡Caja cerrada con éxito! Diferencia registrada: $${diferencia.toLocaleString('es-AR')}`);
       setModalCierreAbierto(false);
       setTurnoActual(null);
       setMovimientos([]);
-      setVentasPedidos([]);
       await verificarTurnoActivo();
     } catch (err: any) {
       alert('Error al cerrar caja: ' + err.message);
@@ -388,12 +407,6 @@ export default function CajaPage() {
               <RefreshCw className="w-3.5 h-3.5" /> Sincronizar Datos
             </button>
           </div>
-        </div>
-
-        {/* Panel de Depuración de Pedidos */}
-        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl text-xs space-y-2">
-          <span className="text-amber-400 font-bold uppercase tracking-wider">Depuración de Conexión y Pedidos:</span>
-          <p className="text-slate-300">Total de pedidos leídos en Supabase: <span className="font-mono font-bold text-white">{todosLosPedidosDebug.length}</span> | Pedidos filtrados para este turno: <span className="font-mono font-bold text-emerald-400">{ventasPedidos.length}</span></p>
         </div>
 
         {ultimoTurnoCerrado && (
@@ -438,7 +451,7 @@ export default function CajaPage() {
                 <Lock className="w-7 h-7" />
               </div>
               <h2 className="text-xl font-bold text-white">Abrir Caja del Día / Nuevo Turno</h2>
-              <p className="text-xs text-slate-400">El fondo inicial de efectivo se cargó automáticamente con el saldo declarado del cierre anterior.</p>
+              <p className="text-xs text-slate-400">Ingresa los saldos iniciales exactos para arrancar el turno.</p>
             </div>
 
             <form onSubmit={abrirCaja} className="space-y-4">
@@ -462,6 +475,18 @@ export default function CajaPage() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-amber-400 font-mono font-bold"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Saldo Disponible en Transferencias Inicial ($)</label>
+                <input
+                  type="number"
+                  value={saldoTransferenciaInicial}
+                  onChange={(e) => setSaldoTransferenciaInicial(Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-sky-400 font-mono font-bold"
+                  required
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Ingresa el saldo real que tenías en transferencias al cerrar ayer.</span>
               </div>
 
               <button
@@ -488,10 +513,39 @@ export default function CajaPage() {
                 <span className="text-[10px] text-slate-500">Ventas efectivo + fondo + mov.</span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-1">
-                <span className="text-[10px] font-mono text-sky-400 uppercase flex items-center gap-1"><DollarSign className="w-3 h-3"/> Transferencias Disponibles</span>
+              <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-sky-400 uppercase flex items-center gap-1"><DollarSign className="w-3 h-3"/> Transferencias Disponibles</span>
+                  <button 
+                    onClick={() => {
+                      setNuevoSaldoTransfEdit(baseTransferenciasAnterior);
+                      setEditandoSaldoTransf(!editandoSaldoTransf);
+                    }}
+                    className="text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+                    title="Editar saldo inicial de transferencia"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
                 <span className="block text-xl font-mono font-bold text-sky-400">${totalTransferenciasGeneral.toLocaleString('es-AR')}</span>
-                <span className="text-[10px] text-slate-500">Saldo anterior + ventas - egresos</span>
+                <span className="text-[10px] text-slate-500 block">Saldo inicial (${baseTransferenciasAnterior.toLocaleString('es-AR')}) + ventas</span>
+
+                {editandoSaldoTransf && (
+                  <div className="absolute inset-0 bg-slate-950 p-4 rounded-2xl border border-sky-500/50 flex flex-col justify-center space-y-2 z-10">
+                    <span className="text-[10px] font-bold text-sky-400 uppercase">Corregir saldo inicial de transferencia:</span>
+                    <input
+                      type="number"
+                      value={nuevoSaldoTransfEdit}
+                      onChange={(e) => setNuevoSaldoTransfEdit(Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditandoSaldoTransf(false)} className="flex-1 bg-slate-800 text-slate-300 text-[10px] py-1 rounded">Cancelar</button>
+                      <button onClick={actualizarSaldoTransferenciaManual} className="flex-1 bg-sky-600 text-white text-[10px] py-1 rounded font-bold">Guardar</button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between">
@@ -513,10 +567,11 @@ export default function CajaPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               
+              {/* HISTÓRICO DE TRANSACCIONES SEPARADO POR DÍAS */}
               <div className="lg:col-span-6 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                   <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                    <ShoppingCart className="w-4 h-4" /> Ventas del Día ({ventasPedidos.length})
+                    <ShoppingCart className="w-4 h-4" /> Histórico de Transacciones ({ventasFiltradasHistorial.length})
                   </h2>
 
                   <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px]">
@@ -541,36 +596,57 @@ export default function CajaPage() {
                   </div>
                 </div>
 
-                <div className="max-h-[340px] overflow-y-auto space-y-2 pr-1">
-                  {ventasFiltradas.length > 0 ? (
-                    ventasFiltradas.map((p, idx) => {
-                      const medioDetectado = clasificarMedioPago(p);
+                <div className="max-h-[380px] overflow-y-auto space-y-4 pr-1">
+                  {diasOrdenados.length > 0 ? (
+                    diasOrdenados.map(dia => {
+                      const pedidosDelDia = ventasAgrupadasPorDia[dia];
+                      const totalDia = pedidosDelDia.reduce((sum: number, item: any) => sum + Number(item.total || 0), 0);
+
                       return (
-                        <div key={idx} className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between">
-                          <div className="space-y-1">
-                            <span className="text-xs font-medium text-white block">{p.nombreCliente || 'Cliente General'}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-mono bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded uppercase font-bold">{p.id || 'PEDIDO'}</span>
-                              <span className={`text-[9px] font-mono px-2 py-0.5 rounded uppercase font-bold ${medioDetectado === 'efectivo' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>
-                                {medioDetectado}
-                              </span>
-                            </div>
+                        <div key={dia} className="space-y-2">
+                          <div className="flex items-center justify-between bg-slate-950/80 border border-slate-800 px-3 py-2 rounded-xl text-xs">
+                            <span className="font-bold text-amber-400 flex items-center gap-1.5 font-mono">
+                              <Calendar className="w-3.5 h-3.5" /> {dia}
+                            </span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              Subtotal: ${totalDia.toLocaleString('es-AR')}
+                            </span>
                           </div>
-                          <div className="text-right">
-                            <span className="block text-xs font-mono font-bold text-emerald-400">+${Number(p.total || 0).toLocaleString('es-AR')}</span>
-                            <span className="text-[9px] text-slate-500">{new Date(p.fecha || p.creado_en || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                          <div className="space-y-1.5 pl-1">
+                            {pedidosDelDia.map((p: any, idx: number) => {
+                              const medioDetectado = clasificarMedioPago(p);
+                              return (
+                                <div key={idx} className="bg-slate-950/40 border border-slate-800/60 p-3 rounded-xl flex items-center justify-between">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-white block">{p.nombreCliente || 'Cliente General'}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[9px] font-mono bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded uppercase font-bold">{p.id || 'PEDIDO'}</span>
+                                      <span className={`text-[9px] font-mono px-2 py-0.5 rounded uppercase font-bold ${medioDetectado === 'efectivo' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>
+                                        {medioDetectado}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="block text-xs font-mono font-bold text-emerald-400">+${Number(p.total || 0).toLocaleString('es-AR')}</span>
+                                    <span className="text-[9px] text-slate-500">{new Date(p.fecha || p.creado_en || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       );
                     })
                   ) : (
                     <div className="text-center py-16 text-slate-500 text-xs">
-                      No hay ventas registradas bajo este filtro en este turno.
+                      No hay transacciones registradas bajo este filtro.
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* REGISTRO DE GASTOS / INGRESOS */}
               <div className="lg:col-span-6 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-5">
                 <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                   <PlusCircle className="w-4 h-4" /> Registrar Gasto o Ingreso Extra
