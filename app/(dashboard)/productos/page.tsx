@@ -1,7 +1,8 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
-import { useState, useRef } from 'react';
-import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign, CreditCard } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign } from 'lucide-react';
 import { useInventario, Producto } from '@/context/InventarioContext';
 import ImportadorExcel from '@/components/ImportadorExcel';
 import { createClient } from '@supabase/supabase-js';
@@ -33,10 +34,16 @@ export default function ProductosPage() {
   const [nombreClienteVenta, setNombreClienteVenta] = useState('Cliente Mostrador');
   const [medioPagoVenta, setMedioPagoVenta] = useState<'efectivo' | 'transferencia'>('efectivo');
 
-  // Estado para mover el botón flotante del carrito
-  const [posicionCarrito, setPosicionCarrito] = useState({ x: window?.innerWidth ? window.innerWidth - 100 : 800, y: 120 });
+  // Estado para mover el botón flotante de forma segura en el cliente
+  const [posicionCarrito, setPosicionCarrito] = useState({ x: 500, y: 120 });
   const [arrastrando, setArrastrando] = useState(false);
   const offsetRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPosicionCarrito({ x: window.innerWidth - 120, y: 120 });
+    }
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setArrastrando(true);
@@ -181,7 +188,6 @@ export default function ProductosPage() {
     };
 
     try {
-      // 1. Guardar pedido en Supabase
       const { data: appData, error: appError } = await supabase
         .from('app_data')
         .select('payload')
@@ -199,7 +205,6 @@ export default function ProductosPage() {
           updated_at: new Date().toISOString()
         }]);
 
-      // 2. Registrar cobro automático en el turno de caja actual para que impacte hoy
       const { data: appTurnos } = await supabase
         .from('app_data')
         .select('payload')
@@ -233,7 +238,6 @@ export default function ProductosPage() {
           }]);
       }
 
-      // 3. Descontar stock de cada producto
       carritoMostrador.forEach(item => {
         if (typeof actualizarStock === 'function') {
           actualizarStock(item.id, item.cantidad, 'salida', 'stockActual');
@@ -271,7 +275,7 @@ export default function ProductosPage() {
         <div className="relative">
           <button
             onClick={() => setDesplegableCarritoAbierto(!desplegableCarritoAbierto)}
-            className="bg-amber-505 bg-amber-500 hover:bg-amber-600 text-slate-950 p-3.5 rounded-full shadow-2xl flex items-center justify-center border-2 border-slate-950 transition-transform active:scale-95"
+            className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-3.5 rounded-full shadow-2xl flex items-center justify-center border-2 border-slate-950 transition-transform active:scale-95 cursor-pointer"
             title="Arrastra para mover o haz clic para ver la compra"
           >
             <ShoppingCart className="w-6 h-6" />
@@ -290,7 +294,7 @@ export default function ProductosPage() {
               <span className="text-xs font-bold text-amber-400 uppercase flex items-center gap-1.5">
                 <ShoppingCart className="w-4 h-4" /> Venta en Curso ({totalItemsCount})
               </span>
-              <button onClick={() => setDesplegableCarritoAbierto(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+              <button onClick={() => setDesplegableCarritoAbierto(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
 
             <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
@@ -303,9 +307,9 @@ export default function ProductosPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center bg-slate-900 rounded border border-slate-800">
-                        <button onClick={() => cambiarCantidadCarrito(item.id, -1)} className="px-1.5 py-0.5 text-slate-400 hover:text-white"><Minus className="w-3 h-3" /></button>
+                        <button onClick={() => cambiarCantidadCarrito(item.id, -1)} className="px-1.5 py-0.5 text-slate-400 hover:text-white cursor-pointer"><Minus className="w-3 h-3" /></button>
                         <span className="px-2 font-mono text-white">{item.cantidad}</span>
-                        <button onClick={() => cambiarCantidadCarrito(item.id, 1)} className="px-1.5 py-0.5 text-slate-400 hover:text-white"><Plus className="w-3 h-3" /></button>
+                        <button onClick={() => cambiarCantidadCarrito(item.id, 1)} className="px-1.5 py-0.5 text-slate-400 hover:text-white cursor-pointer"><Plus className="w-3 h-3" /></button>
                       </div>
                     </div>
                   </div>
@@ -445,7 +449,7 @@ export default function ProductosPage() {
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-amber-500" /> Finalizar y Cobrar Venta
               </h3>
-              <button onClick={() => setModalCobroAbierto(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setModalCobroAbierto(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="space-y-4 text-xs">
