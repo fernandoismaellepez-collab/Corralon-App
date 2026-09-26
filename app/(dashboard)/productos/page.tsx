@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign } from 'lucide-react';
+import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign, BarChart3, Trophy, Flame, ChevronRight } from 'lucide-react';
 import { useInventario, Producto } from '@/context/InventarioContext';
 import ImportadorExcel from '@/components/ImportadorExcel';
 import { createClient } from '@supabase/supabase-js';
@@ -25,6 +25,13 @@ export default function ProductosPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null);
 
+  // Pestaña activa ('catalogo' o 'ranking')
+  const [vistaActiva, setVistaActiva] = useState<'catalogo' | 'ranking'>('catalogo');
+  const [pedidosHistoricos, setPedidosHistoricos] = useState<any[]>([]);
+
+  // Estado para el modal de detalle por producto en el ranking
+  const [productoSeleccionadoDetalle, setProductoSeleccionadoDetalle] = useState<any>(null);
+
   // Estados del Carrito Flotante y Desplegable
   const [carritoMostrador, setCarritoMostrador] = useState<any[]>([]);
   const [desplegableCarritoAbierto, setDesplegableCarritoAbierto] = useState(false);
@@ -43,7 +50,24 @@ export default function ProductosPage() {
     if (typeof window !== 'undefined') {
       setPosicionCarrito({ x: window.innerWidth - 120, y: 120 });
     }
+    cargarPedidosParaRanking();
   }, []);
+
+  const cargarPedidosParaRanking = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_data')
+        .select('payload')
+        .eq('id', 'pedidos')
+        .single();
+
+      if (!error && data?.payload) {
+        setPedidosHistoricos(data.payload);
+      }
+    } catch (err) {
+      console.error('Error al cargar pedidos históricos:', err);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setArrastrando(true);
@@ -248,10 +272,47 @@ export default function ProductosPage() {
       setCarritoMostrador([]);
       setModalCobroAbierto(false);
       setDesplegableCarritoAbierto(false);
+      await cargarPedidosParaRanking();
     } catch (err: any) {
       alert('Error al procesar el cobro: ' + err.message);
     }
   };
+
+  // Cómputo del Ranking (excluyendo pedidos cancelados)
+  const rankingProductos = (() => {
+    const acumulador: Record<string, { nombre: string; unidadesVendidas: number; totalFacturado: number; detallePedidos: any[] }> = {};
+
+    pedidosHistoricos.forEach((pedido: any) => {
+      const estado = String(pedido.estado || pedido.status || '').trim().toLowerCase();
+      if (estado === 'cancelado') return; // Excluimos cancelados
+
+      const idPedido = pedido.id || 'S/N';
+      const cliente = pedido.nombreCliente || 'Cliente General';
+      const items = pedido.items || [];
+
+      items.forEach((item: any) => {
+        const nombreProd = item.nombre || 'Producto Desconocido';
+        const cantidad = Number(item.cantidad || 0);
+        const subtotal = Number(item.subtotal || (Number(item.precioUnitario || 0) * cantidad));
+
+        if (!acumulador[nombreProd]) {
+          acumulador[nombreProd] = { nombre: nombreProd, unidadesVendidas: 0, totalFacturado: 0, detallePedidos: [] };
+        }
+        acumulador[nombreProd].unidadesVendidas += cantidad;
+        acumulador[nombreProd].totalFacturado += subtotal;
+        
+        // Guardamos en qué pedido se llevó este producto
+        acumulador[nombreProd].detallePedidos.push({
+          idPedido,
+          cliente,
+          cantidad,
+          fecha: pedido.fecha ? new Date(pedido.fecha).toLocaleDateString() : 'Fecha no registrada'
+        });
+      });
+    });
+
+    return Object.values(acumulador).sort((a, b) => b.unidadesVendidas - a.unidadesVendidas);
+  })();
 
   const productosFiltrados = productos.filter((p: any) => {
     const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.codigo.toLowerCase().includes(busqueda.toLowerCase());
@@ -362,84 +423,231 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-slate-100">Catálogo de Productos y Venta Rápida</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
+          <button
+            onClick={() => setVistaActiva('catalogo')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'catalogo' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Package className="w-4 h-4" /> Catálogo y Venta
+          </button>
+          <button
+            onClick={() => setVistaActiva('ranking')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'ranking' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Trophy className="w-4 h-4" /> Ranking de Más Vendidos
+          </button>
+        </div>
+
         <button onClick={handleAbrirCrear} className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 cursor-pointer">
           <Plus className="w-5 h-5" /> Nuevo Producto
         </button>
       </div>
 
-      {/* FILTROS DE CATEGORÍA Y BÚSQUEDA */}
-      <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
-          <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre o código..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500"
-          />
-        </div>
-        <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1">
-          <span className="text-xs text-slate-400 flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Cat:</span>
-          <select
-            value={categoriaSeleccionada}
-            onChange={(e) => setCategoriaSeleccionada(e.target.value)}
-            className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
-          >
-            {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
-        </div>
-      </div>
+      {/* VISTA 1: CATALOGO Y VENTA RÁPIDA */}
+      {vistaActiva === 'catalogo' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div className="relative w-full md:w-96">
+              <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o código..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1">
+              <span className="text-xs text-slate-400 flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Cat:</span>
+              <select
+                value={categoriaSeleccionada}
+                onChange={(e) => setCategoriaSeleccionada(e.target.value)}
+                className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              >
+                {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+          </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
-            <tr>
-              <th className="px-5 py-4">ID / Código</th>
-              <th className="px-5 py-4">Categoría</th>
-              <th className="px-5 py-4">Nombre</th>
-              <th className="px-5 py-4 text-center">Stock</th>
-              <th className="px-5 py-4 text-right">Precio</th>
-              <th className="px-5 py-4 text-center">Venta Mostrador</th>
-              <th className="px-5 py-4 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {productosFiltrados.length > 0 ?
-             productosFiltrados.map((p: any) => (
-                <tr key={p.id} className="hover:bg-slate-800/40">
-                  <td className="px-5 py-4 font-mono text-amber-500">{p.codigo}</td>
-                  <td className="px-5 py-4 text-xs text-slate-400">{(p as any).categoria || 'Áridos'}</td>
-                  <td className="px-5 py-4 font-medium text-white">{p.nombre}</td>
-                  <td className="px-5 py-4 text-center font-bold text-emerald-400">{p.stockActual}</td>
-                  <td className="px-5 py-4 text-right">${p.precio.toLocaleString('es-AR')}</td>
-                  <td className="px-5 py-4 text-center">
-                    <button
-                      onClick={() => agregarAlCarrito(p)}
-                      className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Agregar
-                    </button>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <button onClick={() => handleAbrirEditar(p)} className="p-1.5 text-slate-400 hover:text-amber-400 cursor-pointer">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                  </td>
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
+                <tr>
+                  <th className="px-5 py-4">ID / Código</th>
+                  <th className="px-5 py-4">Categoría</th>
+                  <th className="px-5 py-4">Nombre</th>
+                  <th className="px-5 py-4 text-center">Stock</th>
+                  <th className="px-5 py-4 text-right">Precio</th>
+                  <th className="px-5 py-4 text-center">Venta Mostrador</th>
+                  <th className="px-5 py-4 text-right">Acciones</th>
                 </tr>
-              ))
-             : (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                  No hay productos registrados con los filtros seleccionados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {productosFiltrados.length > 0 ?
+                 productosFiltrados.map((p: any) => (
+                    <tr key={p.id} className="hover:bg-slate-800/40">
+                      <td className="px-5 py-4 font-mono text-amber-500">{p.codigo}</td>
+                      <td className="px-5 py-4 text-xs text-slate-400">{(p as any).categoria || 'Áridos'}</td>
+                      <td className="px-5 py-4 font-medium text-white">{p.nombre}</td>
+                      <td className="px-5 py-4 text-center font-bold text-emerald-400">{p.stockActual}</td>
+                      <td className="px-5 py-4 text-right">${p.precio.toLocaleString('es-AR')}</td>
+                      <td className="px-5 py-4 text-center">
+                        <button
+                          onClick={() => agregarAlCarrito(p)}
+                          className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Agregar
+                        </button>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button onClick={() => handleAbrirEditar(p)} className="p-1.5 text-slate-400 hover:text-amber-400 cursor-pointer">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                 : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                      No hay productos registrados con los filtros seleccionados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* VISTA 2: RANKING DE MÁS VENDIDOS */}
+      {vistaActiva === 'ranking' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-amber-500" /> Podio de Productos Más Vendidos
+                </h2>
+                <p className="text-xs text-slate-400">Haz clic en cualquier producto de la lista para ver el detalle exacto de qué pedidos y clientes lo compraron.</p>
+              </div>
+              <span className="text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
+                {rankingProductos.length} producto(s) con ventas
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-300">
+                <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
+                  <tr>
+                    <th className="px-5 py-4 text-center w-20">Posición</th>
+                    <th className="px-5 py-4">Producto</th>
+                    <th className="px-5 py-4 text-center">Unidades Vendidas</th>
+                    <th className="px-5 py-4 text-right">Facturación Total</th>
+                    <th className="px-5 py-4 text-center">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {rankingProductos.length > 0 ? (
+                    rankingProductos.map((prod, index) => (
+                      <tr 
+                        key={index} 
+                        onClick={() => setProductoSeleccionadoDetalle(prod)}
+                        className="hover:bg-slate-800/60 cursor-pointer transition-colors"
+                        title="Haz clic para ver qué pedidos compraron este producto"
+                      >
+                        <td className="px-5 py-4 text-center font-mono font-extrabold">
+                          {index === 0 ? <span className="text-amber-400 text-base">🥇 #1</span> :
+                           index === 1 ? <span className="text-slate-300 text-base">🥈 #2</span> :
+                           index === 2 ? <span className="text-amber-700 text-base">🥉 #3</span> :
+                           <span className="text-slate-500">#{index + 1}</span>}
+                        </td>
+                        <td className="px-5 py-4 font-medium text-white flex items-center gap-2">
+                          {prod.nombre}
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg font-mono font-bold text-xs">
+                            {prod.unidadesVendidas} un.
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right font-mono font-bold text-white">
+                          ${prod.totalFacturado.toLocaleString('es-AR')}
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                            Ver pedidos <ChevronRight className="w-3.5 h-3.5" />
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-16 text-center text-slate-500 text-xs">
+                        Aún no hay registros de ventas para armar el ranking. Realiza ventas desde el catálogo para ver las estadísticas aquí.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETALLE DE PEDIDOS POR PRODUCTO */}
+      {productoSeleccionadoDetalle && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Package className="w-5 h-5 text-amber-500" /> {productoSeleccionadoDetalle.nombre}
+                </h3>
+                <p className="text-xs text-slate-400">Desglose de pedidos y clientes que compraron este producto.</p>
+              </div>
+              <button onClick={() => setProductoSeleccionadoDetalle(null)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-300">
+                <span>Total Unidades Vendidas:</span>
+                <span className="font-mono font-bold text-emerald-400">{productoSeleccionadoDetalle.unidadesVendidas} unidades</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Facturación Total Producto:</span>
+                <span className="font-mono font-bold text-amber-400">${productoSeleccionadoDetalle.totalFacturado.toLocaleString('es-AR')}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Pedidos Asociados</span>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {productoSeleccionadoDetalle.detallePedidos.map((ped: any, idx: number) => (
+                  <div key={idx} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-white font-bold font-mono">{ped.idPedido}</span>
+                      <span className="block text-[11px] text-slate-400">Cliente: <strong className="text-slate-200">{ped.cliente}</strong> ({ped.fecha})</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg font-mono font-bold">
+                      {ped.cantidad} un.
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setProductoSeleccionadoDetalle(null)}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-3 rounded-xl transition-colors cursor-pointer"
+              >
+                Cerrar Detalle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE COBRO PROFESIONAL */}
       {modalCobroAbierto && (
