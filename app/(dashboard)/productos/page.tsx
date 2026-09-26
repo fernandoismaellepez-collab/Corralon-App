@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign, BarChart3, Trophy, Flame, ChevronRight } from 'lucide-react';
+import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign, BarChart3, Trophy, Flame, ChevronRight, TrendingUp } from 'lucide-react';
 import { useInventario, Producto } from '@/context/InventarioContext';
 import ImportadorExcel from '@/components/ImportadorExcel';
 import { createClient } from '@supabase/supabase-js';
@@ -278,8 +278,21 @@ export default function ProductosPage() {
     }
   };
 
-  // Cómputo del Ranking (excluyendo pedidos cancelados)
+  // Cómputo del Ranking y Promedio Diario / Proyección Semanal
   const rankingProductos = (() => {
+    // Calcular días activos en base a las fechas de los pedidos
+    const fechasValidas = pedidosHistoricos
+      .filter((p: any) => String(p.estado || '').toLowerCase() !== 'cancelado' && p.fecha)
+      .map((p: any) => new Date(p.fecha).getTime());
+
+    let diasActivos = 1;
+    if (fechasValidas.length > 0) {
+      const minFecha = Math.min(...fechasValidas);
+      const maxFecha = Math.max(...fechasValidas, Date.now());
+      const diferenciaDias = Math.ceil((maxFecha - minFecha) / (1000 * 60 * 60 * 24));
+      diasActivos = diferenciaDias > 0 ? diferenciaDias : 1;
+    }
+
     const acumulador: Record<string, { nombre: string; unidadesVendidas: number; totalFacturado: number; detallePedidos: any[] }> = {};
 
     pedidosHistoricos.forEach((pedido: any) => {
@@ -301,7 +314,6 @@ export default function ProductosPage() {
         acumulador[nombreProd].unidadesVendidas += cantidad;
         acumulador[nombreProd].totalFacturado += subtotal;
         
-        // Guardamos en qué pedido se llevó este producto
         acumulador[nombreProd].detallePedidos.push({
           idPedido,
           cliente,
@@ -311,7 +323,15 @@ export default function ProductosPage() {
       });
     });
 
-    return Object.values(acumulador).sort((a, b) => b.unidadesVendidas - a.unidadesVendidas);
+    return Object.values(acumulador).map(prod => {
+      const promedioDiario = prod.unidadesVendidas / diasActivos;
+      const proyeccionSemanal = promedioDiario * 7;
+      return {
+        ...prod,
+        promedioDiario: Number(promedioDiario.toFixed(2)),
+        proyeccionSemanal: Number(proyeccionSemanal.toFixed(1))
+      };
+    }).sort((a, b) => b.unidadesVendidas - a.unidadesVendidas);
   })();
 
   const productosFiltrados = productos.filter((p: any) => {
@@ -435,7 +455,7 @@ export default function ProductosPage() {
             onClick={() => setVistaActiva('ranking')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'ranking' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
           >
-            <Trophy className="w-4 h-4" /> Ranking de Más Vendidos
+            <Trophy className="w-4 h-4" /> Ranking y Previsión
           </button>
         </div>
 
@@ -520,19 +540,19 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* VISTA 2: RANKING DE MÁS VENDIDOS */}
+      {/* VISTA 2: RANKING Y PREVISIÓN */}
       {vistaActiva === 'ranking' && (
         <div className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-amber-500" /> Podio de Productos Más Vendidos
+                  <TrendingUp className="w-5 h-5 text-amber-500" /> Previsión de Demanda e Inversión Semanal
                 </h2>
-                <p className="text-xs text-slate-400">Haz clic en cualquier producto de la lista para ver el detalle exacto de qué pedidos y clientes lo compraron.</p>
+                <p className="text-xs text-slate-400">Promedio diario de ventas y proyección semanal estimada para planificación de stock. (Haz clic en un producto para ver el detalle de pedidos).</p>
               </div>
               <span className="text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
-                {rankingProductos.length} producto(s) con ventas
+                {rankingProductos.length} producto(s) analizados
               </span>
             </div>
 
@@ -540,10 +560,12 @@ export default function ProductosPage() {
               <table className="w-full text-left text-sm text-slate-300">
                 <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
                   <tr>
-                    <th className="px-5 py-4 text-center w-20">Posición</th>
+                    <th className="px-5 py-4 text-center w-20">Podio</th>
                     <th className="px-5 py-4">Producto</th>
-                    <th className="px-5 py-4 text-center">Unidades Vendidas</th>
-                    <th className="px-5 py-4 text-right">Facturación Total</th>
+                    <th className="px-5 py-4 text-center">Unidades Totales</th>
+                    <th className="px-5 py-4 text-center text-amber-400">Promedio / Día</th>
+                    <th className="px-5 py-4 text-center text-cyan-400">Proyección Semanal (x7)</th>
+                    <th className="px-5 py-4 text-right">Facturación</th>
                     <th className="px-5 py-4 text-center">Detalle</th>
                   </tr>
                 </thead>
@@ -562,13 +584,19 @@ export default function ProductosPage() {
                            index === 2 ? <span className="text-amber-700 text-base">🥉 #3</span> :
                            <span className="text-slate-500">#{index + 1}</span>}
                         </td>
-                        <td className="px-5 py-4 font-medium text-white flex items-center gap-2">
+                        <td className="px-5 py-4 font-medium text-white">
                           {prod.nombre}
                         </td>
                         <td className="px-5 py-4 text-center">
                           <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg font-mono font-bold text-xs">
                             {prod.unidadesVendidas} un.
                           </span>
+                        </td>
+                        <td className="px-5 py-4 text-center font-mono text-amber-400 font-bold">
+                          {prod.promedioDiario} un/día
+                        </td>
+                        <td className="px-5 py-4 text-center font-mono text-cyan-400 font-bold bg-cyan-950/20">
+                          {prod.proyeccionSemanal} un/sem.
                         </td>
                         <td className="px-5 py-4 text-right font-mono font-bold text-white">
                           ${prod.totalFacturado.toLocaleString('es-AR')}
@@ -582,8 +610,8 @@ export default function ProductosPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-6 py-16 text-center text-slate-500 text-xs">
-                        Aún no hay registros de ventas para armar el ranking. Realiza ventas desde el catálogo para ver las estadísticas aquí.
+                      <td colSpan={7} className="px-6 py-16 text-center text-slate-500 text-xs">
+                        Aún no hay registros de ventas suficientes para calcular la previsión. Realiza ventas desde el catálogo.
                       </td>
                     </tr>
                   )}
@@ -603,19 +631,19 @@ export default function ProductosPage() {
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Package className="w-5 h-5 text-amber-500" /> {productoSeleccionadoDetalle.nombre}
                 </h3>
-                <p className="text-xs text-slate-400">Desglose de pedidos y clientes que compraron este producto.</p>
+                <p className="text-xs text-slate-400">Desglose de pedidos, clientes y análisis de demanda.</p>
               </div>
               <button onClick={() => setProductoSeleccionadoDetalle(null)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-300">
-                <span>Total Unidades Vendidas:</span>
-                <span className="font-mono font-bold text-emerald-400">{productoSeleccionadoDetalle.unidadesVendidas} unidades</span>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-slate-400 block">Promedio Diario:</span>
+                <span className="font-mono font-bold text-amber-400 text-sm">{productoSeleccionadoDetalle.promedioDiario} un/día</span>
               </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Facturación Total Producto:</span>
-                <span className="font-mono font-bold text-amber-400">${productoSeleccionadoDetalle.totalFacturado.toLocaleString('es-AR')}</span>
+              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-slate-400 block">Proyección Semanal:</span>
+                <span className="font-mono font-bold text-cyan-400 text-sm">{productoSeleccionadoDetalle.proyeccionSemanal} un/sem.</span>
               </div>
             </div>
 
