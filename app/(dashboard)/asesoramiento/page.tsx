@@ -83,16 +83,31 @@ function AsesoriasContent() {
 
     let listaGenerica: { nombre: string; cantidad: number; unidad: string; categoria: string; fase: 'etapa1' | 'etapa2'; terminosBúsqueda: string }[] = [];
 
-    // Estructura
+    // Estructura y Cimentación (Bases, Zapatas, Columnas cada 3m, Vigas de fundación y Hierro Estructural)
     if (incluirEstructura) {
       const mlVigasFundacion = perimetro;
-      const cantColumnas = Math.max(4, Math.ceil(perimetro / 4) * plantas);
-      const volHormigon = (mlVigasFundacion * 0.2 * 0.3) + (cantColumnas * 0.8 * 0.4 * 0.4);
+      const cantColumnas = Math.max(4, Math.ceil(perimetro / 3) * plantas); // Columnas cada 3 metros reglamentarios
+      const cantBases = cantColumnas; // Una base/zapata por columna
+
+      // Factor de carga estructural según el techo (una losa de hormigón exige estructuras mucho más pesadas que chapa/machimbre)
+      const factorCargaTecho = tipoTecho === 'losa' ? 1.45 : 1.0;
+
+      // Volumen volumétrico realista de hormigón armado para cimientos y estructura
+      const volBases = cantBases * 0.6 * 0.6 * 0.4; // Zapatas/bases de 60x60x40cm
+      const volVigasFundacion = mlVigasFundacion * 0.2 * 0.3; // Vigas de fundación
+      const volColumnas = cantColumnas * alturaTotal * 0.2 * 0.2; // Columnas
       
+      const volHormigonTotal = (volBases + volVigasFundacion + volColumnas) * factorCargaTecho;
+
+      // Kilos de hierro estructural requeridos acorde al volumen y tipo de techo (aprox 95kg de hierro por m3 de hormigón armado)
+      const kilosHierroTotal = volHormigonTotal * 95;
+
       listaGenerica.push(
-        { nombre: 'Cemento Loma negra 25k', cantidad: aplicarMerma(volHormigon * 7.5), unidad: 'bolsas', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'cemento loma negra' },
-        { nombre: 'Arena X MT SUELTA', cantidad: Number((volHormigon * 0.55 * (1 + margenDesperdicio / 100)).toFixed(2)), unidad: 'm³', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'arena x mt suelta' },
-        { nombre: 'PIEDRA X MT SUELTA', cantidad: Number((volHormigon * 0.75 * (1 + margenDesperdicio / 100)).toFixed(2)), unidad: 'm³', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'piedra x mt suelta' }
+        { nombre: 'Hierro del 12 (12m)', cantidad: aplicarMerma(Math.ceil(kilosHierroTotal * 0.5 / 8.88)), unidad: 'barras', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'hierro 12' },
+        { nombre: 'Hierro del 8 (12m)', cantidad: aplicarMerma(Math.ceil(kilosHierroTotal * 0.5 / 3.95)), unidad: 'barras', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'hierro 8' },
+        { nombre: 'Cemento Loma negra 25k', cantidad: aplicarMerma(volHormigonTotal * 8), unidad: 'bolsas', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'cemento loma negra' },
+        { nombre: 'Arena X MT SUELTA', cantidad: Number((volHormigonTotal * 0.65 * (1 + margenDesperdicio / 100)).toFixed(2)), unidad: 'm³', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'arena x mt suelta' },
+        { nombre: 'PIEDRA X MT SUELTA', cantidad: Number((volHormigonTotal * 0.85 * (1 + margenDesperdicio / 100)).toFixed(2)), unidad: 'm³', categoria: 'Estructura', fase: 'etapa1', terminosBúsqueda: 'piedra x mt suelta' }
       );
     }
 
@@ -116,7 +131,7 @@ function AsesoriasContent() {
       );
     }
 
-    // Techo (Losa o Chapa) - CÁLCULOS COMPLETOS CORREGIDOS
+    // Techo (Losa o Chapa)
     if (incluirTecho) {
       if (tipoTecho === 'losa') {
         const lineasViguetas = Math.ceil(ancho / 0.60);
@@ -214,7 +229,7 @@ function AsesoriasContent() {
 
   const logistica = calcularLogistica();
 
-  // EXPLICACIONES DINÁMICAS ESTRICTAMENTE SEGÚN LO SELECCIONADO
+  // EXPLICACIONES TÉCNICAS DINÁMICAS
   const generarExplicacionTecnica = () => {
     const listaExp = [];
     const areaPlanta = ancho * largo;
@@ -222,9 +237,10 @@ function AsesoriasContent() {
     const metrosViguetas = lineasViguetas * largo;
 
     if (incluirEstructura) {
+      const tipoTechoTxt = tipoTecho === 'losa' ? 'Techo de Losa (Carga Pesada)' : 'Techo de Chapa (Carga Liviana)';
       listaExp.push({
-        titulo: '🏗️ Estructura y Cimientos',
-        texto: `Se dimensiona el hormigón armado para bases y columnas perimetrales considerando las cargas de la estructura.`
+        titulo: '🏗️ Estructura y Cimentación (Bases y Hierros)',
+        texto: `Se dimensiona el hormigón armado considerando el tipo de techo seleccionado (${tipoTechoTxt}). Se calculan zapatas/bases, vigas de fundación perimetrales y columnas cada 3 metros, incluyendo las armaduras completas de hierro del 12 y del 8.`
       });
     }
 
@@ -239,7 +255,7 @@ function AsesoriasContent() {
       if (tipoTecho === 'losa') {
         listaExp.push({
           titulo: '🏠 Techo de Losa Alivianada',
-          texto: `• Viguetas: Son ${metrosViguetas} metros totales, porque se disponen cada 60 cm (${ancho}m de ancho / 0.60m = ${lineasViguetas} líneas a lo largo de ${largo}m).\n• Ladrillos de Telgopor: ${Math.round(areaPlanta * 3)} unidades para rellenar los ${areaPlanta} m².\n• Capa de Compresión: Se incluyen paneles de malla sima, cemento, arena y piedra para el hormigón vertido.`
+          texto: `• Viguetas: ${metrosViguetas} metros totales (dispuestas cada 60 cm).\n• Ladrillos de Telgopor: ${Math.round(areaPlanta * 3)} unidades para rellenar los ${areaPlanta} m².\n• Capa de Compresión: Paneles de malla sima, cemento, arena y piedra.`
         });
       } else {
         listaExp.push({
@@ -279,7 +295,7 @@ function AsesoriasContent() {
   const copiarPresupuestoWhatsApp = () => {
     let texto = `🏗️ *PRESUPUESTO ESTIMADO - CORRALÓN*\n`;
     texto += `👤 Cliente: ${nombreCliente || 'Consumidor Final'}\n`;
-    texto += `📏 Obra: ${ancho}x${largo}m (${plantas} plantas)\n`;
+    texto += `📏 Obra: ${ancho}x${largo}m (${plantas} plantas) - Techo: ${tipoTecho.toUpperCase()}\n`;
     texto += `\n*DETALLE DE MATERIALES:*\n`;
     materialesCalculados.forEach(item => {
       texto += `• ${item.cantidad} ${item.unidad} | ${item.nombre} ($${item.subtotal.toLocaleString('es-AR')})\n`;
@@ -299,7 +315,7 @@ function AsesoriasContent() {
       clienteId: 'CLI-PRESUPUESTO',
       nombreCliente: nombreCliente,
       telefonoCliente: telefonoCliente || 'Sin teléfono',
-      direccionEntrega: `Presupuesto Obra: ${ancho}x${largo}m`,
+      direccionEntrega: `Presupuesto Obra: ${ancho}x${largo}m (${tipoTecho})`,
       items: materialesCalculados,
       total: totalPresupuesto,
       estado: 'Presupuesto Guardado'
@@ -319,7 +335,7 @@ function AsesoriasContent() {
     contenidoVentana += `<h1>CORRALÓN - PRESUPUESTO OFICIAL DE OBRA</h1>`;
     contenidoVentana += `<p><strong>Fecha:</strong> ${fechaActual} | <strong>Validez:</strong> 7 días</p>`;
     contenidoVentana += `<p><strong>Cliente:</strong> ${nombreCliente} | <strong>Teléfono:</strong> ${telefonoCliente || 'No especificado'}</p>`;
-    contenidoVentana += `<p><strong>Dimensiones:</strong> ${ancho}m x ${largo}m (${plantas} planta/s) | <strong>Merma:</strong> +${margenDesperdicio}%</p>`;
+    contenidoVentana += `<p><strong>Dimensiones:</strong> ${ancho}m x ${largo}m (${plantas} planta/s) | <strong>Techo:</strong> ${tipoTecho.toUpperCase()} | <strong>Merma:</strong> +${margenDesperdicio}%</p>`;
     contenidoVentana += `<table><tr><th>Categoría</th><th>Material</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th></tr>`;
     materialesCalculados.forEach(item => {
       contenidoVentana += `<tr><td>${item.categoria}</td><td>${item.nombre}</td><td>${item.cantidad} ${item.unidad}</td><td>$${item.precioUnitario.toLocaleString('es-AR')}</td><td>$${item.subtotal.toLocaleString('es-AR')}</td></tr>`;
@@ -345,7 +361,7 @@ function AsesoriasContent() {
       clienteId: 'CLI-ASISTENTE',
       nombreCliente: nombreCliente,
       telefonoCliente: telefonoCliente || 'Sin teléfono',
-      direccionEntrega: `Proyecto Integral: ${ancho}x${largo}m (${plantas} planta/s) +${margenDesperdicio}% merma`,
+      direccionEntrega: `Proyecto Integral: ${ancho}x${largo}m (${plantas} planta/s, Techo ${tipoTecho}) +${margenDesperdicio}% merma`,
       requiereGrua: logistica.requiereGrúa ? 'SI' : 'NO',
       items: materialesCalculados,
       total: totalPresupuesto,
@@ -438,7 +454,7 @@ function AsesoriasContent() {
                 <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">¿Qué componentes incluir?</label>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <label className="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 cursor-pointer">
-                    <input type="checkbox" checked={incluirEstructura} onChange={(e) => setIncluirEstructura(e.target.checked)} className="accent-amber-500" /> Estructura
+                    <input type="checkbox" checked={incluirEstructura} onChange={(e) => setIncluirEstructura(e.target.checked)} className="accent-amber-500" /> Estructura y Bases
                   </label>
                   <label className="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 cursor-pointer">
                     <input type="checkbox" checked={incluirMuros} onChange={(e) => setIncluirMuros(e.target.checked)} className="accent-amber-500" /> Muros
@@ -470,15 +486,14 @@ function AsesoriasContent() {
                 </div>
               )}
 
-              {incluirTecho && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Tipo de Techo</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setTipoTecho('losa')} className={`p-2 rounded-xl text-xs font-bold border ${tipoTecho === 'losa' ? 'bg-amber-500 text-slate-950' : 'bg-slate-950 text-slate-400'}`}>Losa</button>
-                    <button type="button" onClick={() => setTipoTecho('chapa')} className={`p-2 rounded-xl text-xs font-bold border ${tipoTecho === 'chapa' ? 'bg-amber-500 text-slate-950' : 'bg-slate-950 text-slate-400'}`}>Chapa</button>
-                  </div>
+              {/* Selector de Techo (Fundamental para dimensionar la estructura y cimientos) */}
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Tipo de Techo (Afecta cálculo estructural)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setTipoTecho('losa')} className={`p-2 rounded-xl text-xs font-bold border cursor-pointer ${tipoTecho === 'losa' ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-950 text-slate-400 border-slate-800'}`}>Losa (Pesado)</button>
+                  <button type="button" onClick={() => setTipoTecho('chapa')} className={`p-2 rounded-xl text-xs font-bold border cursor-pointer ${tipoTecho === 'chapa' ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-950 text-slate-400 border-slate-800'}`}>Chapa (Liviano)</button>
                 </div>
-              )}
+              </div>
 
               <div className="space-y-3 pt-2">
                 <input type="text" placeholder="Nombre del Cliente..." value={nombreCliente} onChange={(e) => setNombreCliente(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white" />

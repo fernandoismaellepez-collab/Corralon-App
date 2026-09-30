@@ -2,20 +2,39 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign, BarChart3, Trophy, Flame, ChevronRight, TrendingUp } from 'lucide-react';
+import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, DollarSign, BarChart3, Trophy, Flame, ChevronRight, TrendingUp, CalendarDays, ShieldCheck } from 'lucide-react';
 import { useInventario, Producto } from '@/context/InventarioContext';
 import ImportadorExcel from '@/components/ImportadorExcel';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://rlrxixsceubedsrnwfkg.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxOTE5NzIsImV4cCI6MjEwMDc2Nzk3Mn0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJscnhpeHNjZXViZWRzcm53ZmtnIiwicm9sZSI6ImFub24iKlR4ZCI6MTc4NTE5MTk3MiwiZXhwIjoyMTAwNzY3OTcyf0.vozdkpcvWK3M3rmfCZLDiGNwrJP1t9BASEcecmJZJIc';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ÚNICOS CORREOS CON ACCESO DE SUPER USUARIO (TÚ)
+const SUPER_USERS = ['fernandoismaellepez@gmail.com', 'fer.i.lepez@gmail.com'];
 
 const categorias = ['Todas', 'Áridos', 'Cementos y Cal', 'Ladrillos y Bloques', 'Hierros y Mallas', 'Perfiles y Chapas', 'Plomería y Agua', 'Ferretería y Herramientas', 'Pinturas y Impermeabilizantes'];
 
 const prefijosPorCategoria: Record<string, string> = {
   'Áridos': 'ARI', 'Cementos y Cal': 'CEM', 'Ladrillos y Bloques': 'LAD', 'Hierros y Mallas': 'HIE',
   'Perfiles y Chapas': 'PER', 'Plomería y Agua': 'PLO', 'Ferretería y Herramientas': 'FER', 'Pinturas y Impermeabilizantes': 'PIN'
+};
+
+const parsearFechaLocal = (fechaStr: string) => {
+  if (!fechaStr) return new Date();
+  if (fechaStr.includes('T')) {
+    const soloFecha = fechaStr.split('T')[0];
+    const partes = soloFecha.split('-');
+    if (partes.length === 3) {
+      return new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+    }
+  }
+  const partes = fechaStr.split('-');
+  if (partes.length === 3) {
+    return new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+  }
+  return new Date(fechaStr);
 };
 
 export default function ProductosPage() {
@@ -25,23 +44,22 @@ export default function ProductosPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null);
 
-  // Pestaña activa ('catalogo' o 'ranking')
-  const [vistaActiva, setVistaActiva] = useState<'catalogo' | 'ranking'>('catalogo');
+  // Estados de Verificación de Super Usuario
+  const [esSuperUsuario, setEsSuperUsuario] = useState(false);
+  const [cargandoPermisos, setCargandoPermisos] = useState(true);
+
+  const [vistaActiva, setVistaActiva] = useState<'catalogo' | 'ranking' | 'dias'>('catalogo');
   const [pedidosHistoricos, setPedidosHistoricos] = useState<any[]>([]);
 
-  // Estado para el modal de detalle por producto en el ranking
   const [productoSeleccionadoDetalle, setProductoSeleccionadoDetalle] = useState<any>(null);
 
-  // Estados del Carrito Flotante y Desplegable
   const [carritoMostrador, setCarritoMostrador] = useState<any[]>([]);
   const [desplegableCarritoAbierto, setDesplegableCarritoAbierto] = useState(false);
   const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
 
-  // Datos del Formulario de Cobro
   const [nombreClienteVenta, setNombreClienteVenta] = useState('Cliente Mostrador');
   const [medioPagoVenta, setMedioPagoVenta] = useState<'efectivo' | 'transferencia'>('efectivo');
 
-  // Estado para mover el botón flotante de forma segura en el cliente
   const [posicionCarrito, setPosicionCarrito] = useState({ x: 500, y: 120 });
   const [arrastrando, setArrastrando] = useState(false);
   const offsetRef = useRef({ x: 0, y: 0 });
@@ -50,8 +68,25 @@ export default function ProductosPage() {
     if (typeof window !== 'undefined') {
       setPosicionCarrito({ x: window.innerWidth - 120, y: 120 });
     }
+    verificarSuperUsuario();
     cargarPedidosParaRanking();
   }, []);
+
+  const verificarSuperUsuario = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.email && SUPER_USERS.includes(user.email.toLowerCase().trim())) {
+        setEsSuperUsuario(true);
+      } else {
+        setEsSuperUsuario(false);
+      }
+    } catch (err) {
+      console.error('Error al verificar sesión de super usuario:', err);
+      setEsSuperUsuario(false);
+    } finally {
+      setCargandoPermisos(false);
+    }
+  };
 
   const cargarPedidosParaRanking = async () => {
     try {
@@ -166,7 +201,6 @@ export default function ProductosPage() {
     }
   };
 
-  // Funciones del Carrito
   const agregarAlCarrito = (prod: any) => {
     setCarritoMostrador(prev => {
       const existe = prev.find(item => item.id === prod.id);
@@ -195,13 +229,15 @@ export default function ProductosPage() {
     const clienteFinal = nombreClienteVenta.trim() || 'Cliente Mostrador';
     const idPedido = 'PED-' + Date.now().toString().slice(-11);
 
+    const fechaHoyLocal = new Date().toISOString().split('T')[0];
+
     const nuevoPedido = {
       id: idPedido,
       nombreCliente: clienteFinal,
       total: totalCarrito,
       estado: 'Entregado',
       medioPago: medioPagoVenta,
-      fecha: new Date().toISOString(),
+      fecha: fechaHoyLocal,
       items: carritoMostrador.map(i => ({
         id: i.id,
         nombre: i.nombre,
@@ -278,30 +314,41 @@ export default function ProductosPage() {
     }
   };
 
-  // Cómputo del Ranking y Promedio Diario / Proyección Semanal
-  const rankingProductos = (() => {
-    // Calcular días activos en base a las fechas de los pedidos
-    const fechasValidas = pedidosHistoricos
-      .filter((p: any) => String(p.estado || '').toLowerCase() !== 'cancelado' && p.fecha)
-      .map((p: any) => new Date(p.fecha).getTime());
+  const estadisticasGeneralesDesdeSep = (() => {
+    const limiteInicio = new Date(2026, 8, 1).getTime();
+    let totalFacturadoGlobal = 0;
+    let totalPedidosGlobal = 0;
 
-    let diasActivos = 1;
-    if (fechasValidas.length > 0) {
-      const minFecha = Math.min(...fechasValidas);
-      const maxFecha = Math.max(...fechasValidas, Date.now());
-      const diferenciaDias = Math.ceil((maxFecha - minFecha) / (1000 * 60 * 60 * 24));
-      diasActivos = diferenciaDias > 0 ? diferenciaDias : 1;
-    }
+    pedidosHistoricos.forEach((pedido: any) => {
+      const estado = String(pedido.estado || pedido.status || '').trim().toLowerCase();
+      if (estado === 'cancelado' || !pedido.fecha) return;
+
+      const fechaObj = parsearFechaLocal(pedido.fecha);
+      if (fechaObj.getTime() < limiteInicio) return;
+
+      totalFacturadoGlobal += Number(pedido.total || 0);
+      totalPedidosGlobal += 1;
+    });
+
+    return { totalFacturadoGlobal, totalPedidosGlobal };
+  })();
+
+  const rankingProductos = (() => {
+    const fechaInicioNegocio = new Date(2026, 8, 1).getTime();
+    const hoyTime = Date.now();
+    const diffDias = Math.ceil((hoyTime - fechaInicioNegocio) / (1000 * 60 * 60 * 24));
+    const diasActivos = diffDias > 0 ? diffDias : 1;
 
     const acumulador: Record<string, { nombre: string; unidadesVendidas: number; totalFacturado: number; detallePedidos: any[] }> = {};
 
     pedidosHistoricos.forEach((pedido: any) => {
       const estado = String(pedido.estado || pedido.status || '').trim().toLowerCase();
-      if (estado === 'cancelado') return; // Excluimos cancelados
+      if (estado === 'cancelado') return;
 
       const idPedido = pedido.id || 'S/N';
       const cliente = pedido.nombreCliente || 'Cliente General';
       const items = pedido.items || [];
+      const fechaObj = parsearFechaLocal(pedido.fecha);
 
       items.forEach((item: any) => {
         const nombreProd = item.nombre || 'Producto Desconocido';
@@ -318,7 +365,7 @@ export default function ProductosPage() {
           idPedido,
           cliente,
           cantidad,
-          fecha: pedido.fecha ? new Date(pedido.fecha).toLocaleDateString() : 'Fecha no registrada'
+          fecha: pedido.fecha ? fechaObj.toLocaleDateString('es-AR') : 'Fecha no registrada'
         });
       });
     });
@@ -334,12 +381,95 @@ export default function ProductosPage() {
     }).sort((a, b) => b.unidadesVendidas - a.unidadesVendidas);
   })();
 
+  const rankingDiasExactos = (() => {
+    const diasMap: Record<string, { fecha: string; totalFacturado: number; cantidadPedidos: number }> = {};
+    const limiteInicio = new Date(2026, 8, 1).getTime();
+
+    pedidosHistoricos.forEach((pedido: any) => {
+      const estado = String(pedido.estado || pedido.status || '').trim().toLowerCase();
+      if (estado === 'cancelado' || !pedido.fecha) return;
+
+      const fechaObj = parsearFechaLocal(pedido.fecha);
+      if (fechaObj.getTime() < limiteInicio) return;
+
+      const fechaStr = fechaObj.toLocaleDateString('es-AR');
+      const montoTotal = Number(pedido.total || 0);
+
+      if (!diasMap[fechaStr]) {
+        diasMap[fechaStr] = { fecha: fechaStr, totalFacturado: 0, cantidadPedidos: 0 };
+      }
+      diasMap[fechaStr].totalFacturado += montoTotal;
+      diasMap[fechaStr].cantidadPedidos += 1;
+    });
+
+    return Object.values(diasMap).sort((a, b) => b.totalFacturado - a.totalFacturado);
+  })();
+
+  const rankingDiasSemana = (() => {
+    const semMap: Record<string, { nombreDia: string; totalFacturado: number; cantidadPedidos: number; apariciones: number }> = {
+      'Lunes': { nombreDia: 'Lunes', totalFacturado: 0, cantidadPedidos: 0, apariciones: 0 },
+      'Martes': { nombreDia: 'Martes', totalFacturado: 0, cantidadPedidos: 0, apariciones: 0 },
+      'Miércoles': { nombreDia: 'Miércoles', totalFacturado: 0, cantidadPedidos: 0, apariciones: 0 },
+      'Jueves': { nombreDia: 'Jueves', totalFacturado: 0, cantidadPedidos: 0, apariciones: 0 },
+      'Viernes': { nombreDia: 'Viernes', totalFacturado: 0, cantidadPedidos: 0, apariciones: 0 },
+      'Sábado': { nombreDia: 'Sábado', totalFacturado: 0, cantidadPedidos: 0, apariciones: 0 },
+    };
+
+    const limiteInicio = new Date(2026, 8, 1).getTime();
+    const nombresDias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const contadorFechasUnicasPorDia: Record<string, Set<string>> = {
+      'Lunes': new Set(), 'Martes': new Set(), 'Miércoles': new Set(),
+      'Jueves': new Set(), 'Viernes': new Set(), 'Sábado': new Set()
+    };
+
+    pedidosHistoricos.forEach((pedido: any) => {
+      const estado = String(pedido.estado || pedido.status || '').trim().toLowerCase();
+      if (estado === 'cancelado' || !pedido.fecha) return;
+
+      const fechaObj = parsearFechaLocal(pedido.fecha);
+      if (fechaObj.getTime() < limiteInicio) return;
+
+      const diaIndex = fechaObj.getDay();
+      if (diaIndex === 0) return;
+
+      const nombreDiaReal = nombresDias[diaIndex];
+      const fechaStrKey = fechaObj.toISOString().split('T')[0];
+
+      if (contadorFechasUnicasPorDia[nombreDiaReal]) {
+        contadorFechasUnicasPorDia[nombreDiaReal].add(fechaStrKey);
+      }
+
+      if (semMap[nombreDiaReal]) {
+        semMap[nombreDiaReal].totalFacturado += Number(pedido.total || 0);
+        semMap[nombreDiaReal].cantidadPedidos += 1;
+      }
+    });
+
+    Object.keys(semMap).forEach(k => {
+      const count = contadorFechasUnicasPorDia[k]?.size || 0;
+      semMap[k].apariciones = count > 0 ? count : 1;
+    });
+
+    return Object.values(semMap).map(item => ({
+      ...item,
+      promedioFacturacionDiario: item.totalFacturado / item.apariciones
+    })).sort((a, b) => b.totalFacturado - a.totalFacturado);
+  })();
+
   const productosFiltrados = productos.filter((p: any) => {
     const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.codigo.toLowerCase().includes(busqueda.toLowerCase());
     const categoriaProd = (p as any).categoria || 'Áridos';
     const coincideCategoria = categoriaSeleccionada === 'Todas' || categoriaProd === categoriaSeleccionada;
     return coincideBusqueda && coincideCategoria;
   });
+
+  if (cargandoPermisos) {
+    return (
+      <div className="p-12 text-center text-slate-400 font-mono text-sm">
+        Cargando módulo seguro...
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -421,42 +551,82 @@ export default function ProductosPage() {
         )}
       </div>
 
-      {/* PANEL SUPERIOR DE CARGA MASIVA Y RESETEO */}
-      <div className="bg-slate-900 border border-amber-500/30 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
-            <Package className="w-6 h-6" />
+      {/* PANEL SUPERIOR DE CARGA MASIVA Y RESETEO (ESTRICTAMENTE PRIVADO PARA TI) */}
+      {esSuperUsuario && (
+        <div className="bg-slate-900 border border-amber-500/30 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                Panel de Super Usuario <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono">Privado</span>
+              </h2>
+              <p className="text-xs text-slate-400">Herramientas de carga masiva y gestión avanzada de base de datos.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">Panel de Carga Masiva y Base de Datos</h2>
-            <p className="text-xs text-slate-400">Importa tus productos desde Excel o limpia el sistema por completo.</p>
+          <div className="flex items-center gap-3">
+            <ImportadorExcel onImportar={procesarImportacionMasiva} />
+            <button
+              onClick={() => { if(confirm('¿Estás seguro de vaciar todo el sistema para cargar productos reales?')) restablecerInventario(); }}
+              className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" /> Resetear Sistema
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <ImportadorExcel onImportar={procesarImportacionMasiva} />
-          <button
-            onClick={() => { if(confirm('¿Estás seguro de vaciar todo el sistema para cargar productos reales?')) restablecerInventario(); }}
-            className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
-          >
-            <Trash2 className="w-4 h-4" /> Resetear Sistema
-          </button>
+      )}
+
+      {/* TARJETAS DE MÉTRICAS GLOBALES (ESTRICTAMENTE PRIVADAS PARA TI) */}
+      {esSuperUsuario && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Facturado (Desde 1° Sep)</span>
+              <h3 className="text-2xl font-black font-mono text-emerald-400">${estadisticasGeneralesDesdeSep.totalFacturadoGlobal.toLocaleString('es-AR')}</h3>
+            </div>
+            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+              <DollarSign className="w-7 h-7" />
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Pedidos (Desde 1° Sep)</span>
+              <h3 className="text-2xl font-black font-mono text-amber-400">{estadisticasGeneralesDesdeSep.totalPedidosGlobal} pedidos</h3>
+            </div>
+            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
+              <BarChart3 className="w-7 h-7" />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
+        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl flex-wrap">
           <button
             onClick={() => setVistaActiva('catalogo')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'catalogo' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
           >
             <Package className="w-4 h-4" /> Catálogo y Venta
           </button>
-          <button
-            onClick={() => setVistaActiva('ranking')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'ranking' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Trophy className="w-4 h-4" /> Ranking y Previsión
-          </button>
+          
+          {esSuperUsuario && (
+            <>
+              <button
+                onClick={() => setVistaActiva('ranking')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'ranking' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+              >
+                <Trophy className="w-4 h-4" /> Ranking Productos
+              </button>
+              <button
+                onClick={() => setVistaActiva('dias')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${vistaActiva === 'dias' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+              >
+                <CalendarDays className="w-4 h-4" /> Días de Mayor Venta (Lun-Sáb)
+              </button>
+            </>
+          )}
         </div>
 
         <button onClick={handleAbrirCrear} className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 cursor-pointer">
@@ -540,16 +710,16 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* VISTA 2: RANKING Y PREVISIÓN */}
-      {vistaActiva === 'ranking' && (
+      {/* VISTA 2: RANKING PRODUCTOS Y PREVISIÓN (EXCLUSIVO SUPER USUARIO) */}
+      {vistaActiva === 'ranking' && esSuperUsuario && (
         <div className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-amber-500" /> Previsión de Demanda e Inversión Semanal
+                  <TrendingUp className="w-5 h-5 text-amber-500" /> Previsión de Demanda e Inversión Semanal (Desde el 1 de Septiembre)
                 </h2>
-                <p className="text-xs text-slate-400">Promedio diario de ventas y proyección semanal estimada para planificación de stock. (Haz clic en un producto para ver el detalle de pedidos).</p>
+                <p className="text-xs text-slate-400">Promedio diario calculado sobre los días transcurridos desde el inicio de operaciones.</p>
               </div>
               <span className="text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
                 {rankingProductos.length} producto(s) analizados
@@ -576,7 +746,6 @@ export default function ProductosPage() {
                         key={index} 
                         onClick={() => setProductoSeleccionadoDetalle(prod)}
                         className="hover:bg-slate-800/60 cursor-pointer transition-colors"
-                        title="Haz clic para ver qué pedidos compraron este producto"
                       >
                         <td className="px-5 py-4 text-center font-mono font-extrabold">
                           {index === 0 ? <span className="text-amber-400 text-base">🥇 #1</span> :
@@ -584,23 +753,15 @@ export default function ProductosPage() {
                            index === 2 ? <span className="text-amber-700 text-base">🥉 #3</span> :
                            <span className="text-slate-500">#{index + 1}</span>}
                         </td>
-                        <td className="px-5 py-4 font-medium text-white">
-                          {prod.nombre}
-                        </td>
+                        <td className="px-5 py-4 font-medium text-white">{prod.nombre}</td>
                         <td className="px-5 py-4 text-center">
                           <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg font-mono font-bold text-xs">
                             {prod.unidadesVendidas} un.
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-center font-mono text-amber-400 font-bold">
-                          {prod.promedioDiario} un/día
-                        </td>
-                        <td className="px-5 py-4 text-center font-mono text-cyan-400 font-bold bg-cyan-950/20">
-                          {prod.proyeccionSemanal} un/sem.
-                        </td>
-                        <td className="px-5 py-4 text-right font-mono font-bold text-white">
-                          ${prod.totalFacturado.toLocaleString('es-AR')}
-                        </td>
+                        <td className="px-5 py-4 text-center font-mono text-amber-400 font-bold">{prod.promedioDiario} un/día</td>
+                        <td className="px-5 py-4 text-center font-mono text-cyan-400 font-bold bg-cyan-950/20">{prod.proyeccionSemanal} un/sem.</td>
+                        <td className="px-5 py-4 text-right font-mono font-bold text-white">${prod.totalFacturado.toLocaleString('es-AR')}</td>
                         <td className="px-5 py-4 text-center">
                           <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
                             Ver pedidos <ChevronRight className="w-3.5 h-3.5" />
@@ -611,7 +772,7 @@ export default function ProductosPage() {
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-6 py-16 text-center text-slate-500 text-xs">
-                        Aún no hay registros de ventas suficientes para calcular la previsión. Realiza ventas desde el catálogo.
+                        Aún no hay registros de ventas suficientes para calcular la previsión.
                       </td>
                     </tr>
                   )}
@@ -622,8 +783,87 @@ export default function ProductosPage() {
         </div>
       )}
 
+      {/* VISTA 3: DÍAS DE MAYOR VENTA Y PROMEDIO DIARIO (EXCLUSIVO SUPER USUARIO) */}
+      {vistaActiva === 'dias' && esSuperUsuario && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* RANKING FECHAS EXACTAS */}
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                <CalendarDays className="w-5 h-5 text-amber-500" /> Récord por Fechas Calendario (Desde Sep)
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-300">
+                  <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
+                    <tr>
+                      <th className="px-4 py-3 text-center">Pos</th>
+                      <th className="px-4 py-3">Fecha</th>
+                      <th className="px-4 py-3 text-center">Pedidos</th>
+                      <th className="px-4 py-3 text-right">Facturación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-xs">
+                    {rankingDiasExactos.length > 0 ? (
+                      rankingDiasExactos.map((dia, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/40">
+                          <td className="px-4 py-3 text-center font-mono font-bold">
+                            {idx === 0 ? <span className="text-amber-400">🥇</span> : idx === 1 ? <span className="text-slate-300">🥈</span> : idx === 2 ? <span className="text-amber-700">🥉</span> : `#${idx+1}`}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-white font-bold">{dia.fecha}</td>
+                          <td className="px-4 py-3 text-center font-mono">{dia.cantidadPedidos}</td>
+                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-400">${dia.totalFacturado.toLocaleString('es-AR')}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={4} className="text-center py-8 text-slate-500">Sin datos de ventas desde el 1 de septiembre.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* RANKING DÍAS DE LA SEMANA (ORDENADO POR FACTURACIÓN + PROMEDIO DIARIO) */}
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                <Flame className="w-5 h-5 text-amber-500" /> Acumulado por Día Hábil (Lun a Sáb)
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-300">
+                  <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
+                    <tr>
+                      <th className="px-3 py-3 text-center">Podio</th>
+                      <th className="px-3 py-3">Día Hábil</th>
+                      <th className="px-3 py-3 text-center">Pedidos</th>
+                      <th className="px-3 py-3 text-right">Facturación</th>
+                      <th className="px-3 py-3 text-right text-amber-400">Prom. Diario / Día</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-xs">
+                    {rankingDiasSemana.length > 0 ? (
+                      rankingDiasSemana.map((sem, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/40">
+                          <td className="px-3 py-3 text-center font-mono font-bold">
+                            {idx === 0 ? <span className="text-amber-400 text-base">🥇 #1</span> : idx === 1 ? <span className="text-slate-300 text-base">🥈 #2</span> : idx === 2 ? <span className="text-amber-700 text-base">🥉 #3</span> : `#${idx+1}`}
+                          </td>
+                          <td className="px-3 py-3 font-bold text-white">{sem.nombreDia}</td>
+                          <td className="px-3 py-3 text-center font-mono">{sem.cantidadPedidos}</td>
+                          <td className="px-3 py-3 text-right font-mono font-bold text-emerald-400">${sem.totalFacturado.toLocaleString('es-AR')}</td>
+                          <td className="px-3 py-3 text-right font-mono font-bold text-amber-400">${Math.round(sem.promedioFacturacionDiario).toLocaleString('es-AR')}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={5} className="text-center py-8 text-slate-500">Sin datos de ventas.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DETALLE DE PEDIDOS POR PRODUCTO */}
-      {productoSeleccionadoDetalle && (
+      {productoSeleccionadoDetalle && esSuperUsuario && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
