@@ -37,7 +37,7 @@ const parsearFechaLocal = (fechaStr: string) => {
 };
 
 export default function ProductosPage() {
-  const { productos, agregarProducto, actualizarStock, importarOActualizarProductosMasivo, restablecerInventario, actualizarProductoCompleto } = useInventario() as any;
+  const { productos, agregarProducto, actualizarStock, importarOActualizarProductosMasivo, restablecerInventario, actualizarProductoCompleto, eliminarProducto, borrarProducto } = useInventario() as any;
   const [busqueda, setBusqueda] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todas');
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -117,6 +117,18 @@ export default function ProductosPage() {
       stockMinimo: (prod as any).stockMinimo?.toString() || '5',
     });
     setModalAbierto(true);
+  };
+
+  const handleEliminarProducto = (id: string, nombre: string) => {
+    if (confirm(`¿Estás seguro de eliminar el producto "${nombre}"?`)) {
+      if (typeof eliminarProducto === 'function') {
+        eliminarProducto(id);
+      } else if (typeof borrarProducto === 'function') {
+        borrarProducto(id);
+      } else {
+        console.error('No se encontró función de eliminación en el contexto de inventario.');
+      }
+    }
   };
 
   const handleGuardarProducto = (e: React.FormEvent) => {
@@ -549,9 +561,12 @@ export default function ProductosPage() {
                           <Plus className="w-3.5 h-3.5" /> Agregar
                         </button>
                       </td>
-                      <td className="px-5 py-4 text-right">
-                        <button onClick={() => handleAbrirEditar(p)} className="p-1.5 text-slate-400 hover:text-amber-400 cursor-pointer">
+                      <td className="px-5 py-4 text-right space-x-1">
+                        <button onClick={() => handleAbrirEditar(p)} className="p-1.5 text-slate-400 hover:text-amber-400 cursor-pointer inline-block" title="Editar producto">
                           <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleEliminarProducto(p.id, p.nombre)} className="p-1.5 text-slate-400 hover:text-rose-400 cursor-pointer inline-block" title="Eliminar producto">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>

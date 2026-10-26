@@ -97,6 +97,7 @@ export interface InventarioContextType {
   setRolUsuario: (rol: 'operador' | 'ejecutivo') => void;
   setGastosFijos: (gastos: number) => void;
   agregarProducto: (producto: Omit<Producto, 'id' | 'cantidadReservada' | 'cantidadEnAcopio'>) => void;
+  eliminarProducto: (id: string) => void; // <-- FUNCIÓN AÑADIDA
   actualizarStock: (id: string, cantidad: number, tipo: 'entrada' | 'salida' | 'ajuste', campo?: 'stockActual' | 'cantidadEnAcopio' | 'cantidadReservada') => void;
   actualizarProductoCompleto: (productoActualizado: Producto) => void;
   importarOActualizarProductosMasivo: (nuevosProductos: { nombre: string; categoria?: string; precio: number; precioEfectivo?: number; stock: number; proveedor?: string }[]) => void;
@@ -307,6 +308,13 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       cantidadEnAcopio: 0,
     };
     const actualizados = [productoCompleto, ...productos];
+    setProductos(actualizados);
+    guardarEnNubeYLocal('productos', actualizados);
+  };
+
+  // Implementación de la función de eliminación de productos
+  const eliminarProducto = (id: string) => {
+    const actualizados = productos.filter(p => p.id !== id);
     setProductos(actualizados);
     guardarEnNubeYLocal('productos', actualizados);
   };
@@ -578,6 +586,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       setRolUsuario,
       setGastosFijos: cambiarGastosFijos,
       agregarProducto,
+      eliminarProducto, // <-- EXPUESTO AQUÍ
       actualizarStock,
       actualizarProductoCompleto,
       importarOActualizarProductosMasivo,
@@ -593,7 +602,7 @@ export function InventarioProvider({ children }: { children: React.ReactNode }) 
       eliminarUsuario,
       restablecerInventario,
       
-      /* Aquí se exponen las funciones del chat al resto de la app */
+      /* Funciones del chat */
       enviarMensajeChat,
       actualizarMensajeChat,
       eliminarMensajeChat,
