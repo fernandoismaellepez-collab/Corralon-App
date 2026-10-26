@@ -313,10 +313,16 @@ export default function ProductosPage() {
     return { totalPedidosGlobal };
   })();
 
+  // Criterio de búsqueda flexible por palabras parciales (MODIFICADO AQUÍ)
   const productosFiltrados = productos.filter((p: any) => {
-    const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || p.codigo.toLowerCase().includes(busqueda.toLowerCase());
+    const textoBusqueda = busqueda.trim().toLowerCase();
+    const nombreProd = String(p.nombre || '').toLowerCase();
+    const codigoProd = String(p.codigo || '').toLowerCase();
+
+    const coincideBusqueda = textoBusqueda === '' || nombreProd.includes(textoBusqueda) || codigoProd.includes(textoBusqueda);
     const categoriaProd = (p as any).categoria || 'Áridos';
     const coincideCategoria = categoriaSeleccionada === 'Todas' || categoriaProd === categoriaSeleccionada;
+    
     return coincideBusqueda && coincideCategoria;
   });
 
@@ -474,7 +480,7 @@ export default function ProductosPage() {
             <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por nombre o código..."
+              placeholder="Buscar por nombre o palabra (ej. fusion)..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500"
@@ -554,7 +560,7 @@ export default function ProductosPage() {
                : (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
-                    No hay productos registrados con los filtros seleccionados.
+                    No hay productos registrados que coincidan con la búsqueda.
                   </td>
                 </tr>
               )}

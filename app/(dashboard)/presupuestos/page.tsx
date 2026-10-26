@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Plus, Trash2, Printer, Send } from 'lucide-react';
+import { FileText, Plus, Trash2, Printer, Send, Search } from 'lucide-react';
 import { useInventario } from '@/context/InventarioContext';
 
 export default function PresupuestosPage() {
@@ -11,6 +11,15 @@ export default function PresupuestosPage() {
   const [itemsPresupuesto, setItemsPresupuesto] = useState<{ productoId: string; nombre: string; precio: number; precioPromocion: number; cantidad: number }[]>([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState('');
   const [cantidad, setCantidad] = useState(1);
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+
+  // Lógica de búsqueda flexible por palabras parciales
+  const productosFiltradosBusqueda = productos.filter((p: any) => {
+    const textoBusqueda = busquedaProducto.trim().toLowerCase();
+    const nombreProd = String(p.nombre || '').toLowerCase();
+    const codigoProd = String(p.codigo || '').toLowerCase();
+    return textoBusqueda === '' || nombreProd.includes(textoBusqueda) || codigoProd.includes(textoBusqueda);
+  });
 
   const agregarItem = () => {
     if (!productoSeleccionado) return;
@@ -31,13 +40,14 @@ export default function PresupuestosPage() {
           productoId: prod.id, 
           nombre: prod.nombre, 
           precio: prod.precio, 
-          precioPromocion: prod.precio, // Por defecto arranca igual al precio de lista
+          precioPromocion: prod.precio, 
           cantidad: cant 
         }
       ]);
     }
     setProductoSeleccionado('');
     setCantidad(1);
+    setBusquedaProducto('');
   };
 
   const eliminarItem = (index: number) => {
@@ -115,6 +125,22 @@ export default function PresupuestosPage() {
           </div>
 
           <h2 className="text-lg font-bold text-white border-b border-slate-800 pb-3 pt-4">Agregar Productos</h2>
+          
+          {/* BUSCADOR DE PRODUCTOS */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Filtrar Productos</label>
+            <div className="relative mb-2">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por palabra (ej. arena)..."
+                value={busquedaProducto}
+                onChange={e => setBusquedaProducto(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs text-slate-400 mb-1">Seleccionar Producto</label>
             <select 
@@ -123,7 +149,7 @@ export default function PresupuestosPage() {
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500"
             >
               <option value="">-- Seleccionar producto --</option>
-              {productos.map((p: any) => (
+              {productosFiltradosBusqueda.map((p: any) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre} (${p.precio.toLocaleString('es-AR')})
                 </option>
