@@ -53,10 +53,12 @@ export default function PedidosPage() {
   const [itemsPedido, setItemsPedido] = useState<ItemPedido[]>([]);
   
   // Sección 1: Producto estándar
+  const [busquedaProductoTemp, setBusquedaProductoTemp] = useState('');
   const [productoIdTemp, setProductoIdTemp] = useState('');
   const [cantidadTemp, setCantidadTemp] = useState<number | string>(1);
 
   // Sección 2: Producto de inventario con PRECIO LIBRE (por volumen/bulto)
+  const [busquedaProductoLibreTemp, setBusquedaProductoLibreTemp] = useState('');
   const [productoIdLibreTemp, setProductoIdLibreTemp] = useState('');
   const [cantidadLibreTemp, setCantidadLibreTemp] = useState<number | string>(1);
   const [precioLibreTemp, setPrecioLibreTemp] = useState<number | string>('');
@@ -76,6 +78,25 @@ export default function PedidosPage() {
     c.id.toLowerCase().includes(busquedaClienteInput.toLowerCase()) ||
     c.telefono.includes(busquedaClienteInput)
   );
+
+  // Filtros flexibles por palabras parciales para los buscadores de productos
+  const productosFiltradosTemp = productos.filter((p: any) => {
+    const texto = busquedaProductoTemp.trim().toLowerCase();
+    if (!texto) return true;
+    const nombre = String(p.nombre || p.name || '').toLowerCase();
+    const codigo = String(p.codigo || '').toLowerCase();
+    const palabras = texto.split(/\s+/);
+    return palabras.every(palabra => nombre.includes(palabra) || codigo.includes(palabra));
+  });
+
+  const productosFiltradosLibreTemp = productos.filter((p: any) => {
+    const texto = busquedaProductoLibreTemp.trim().toLowerCase();
+    if (!texto) return true;
+    const nombre = String(p.nombre || p.name || '').toLowerCase();
+    const codigo = String(p.codigo || '').toLowerCase();
+    const palabras = texto.split(/\s+/);
+    return palabras.every(palabra => nombre.includes(palabra) || codigo.includes(palabra));
+  });
 
   const seleccionarClienteExistente = (cli: Cliente) => {
     setClienteSeleccionado(cli);
@@ -115,7 +136,7 @@ export default function PedidosPage() {
         {
           productoId: prod.id,
           codigo: prod.codigo,
-          nombre: prod.nombre,
+          nombre: prod.nombre || prod.name,
           precioUnitario: prod.precio,
           cantidad: cant,
           estadoItem: 'Pendiente',
@@ -129,6 +150,7 @@ export default function PedidosPage() {
       ]);
     }
     setProductoIdTemp('');
+    setBusquedaProductoTemp('');
     setCantidadTemp(1);
   };
 
@@ -156,7 +178,7 @@ export default function PedidosPage() {
         {
           productoId: prod.id,
           codigo: prod.codigo,
-          nombre: `${prod.nombre} (Precio Especial Volumen)`,
+          nombre: `${prod.nombre || prod.name} (Precio Especial Volumen)`,
           precioUnitario: precioLibre,
           cantidad: cant,
           estadoItem: 'Pendiente',
@@ -170,6 +192,7 @@ export default function PedidosPage() {
       ]);
     }
     setProductoIdLibreTemp('');
+    setBusquedaProductoLibreTemp('');
     setCantidadLibreTemp(1);
     setPrecioLibreTemp('');
   };
@@ -277,7 +300,7 @@ export default function PedidosPage() {
     const nuevoItem: ItemPedido = {
       productoId: prodEjemplo ? prodEjemplo.id : 'PRD-NEW',
       codigo: prodEjemplo ? prodEjemplo.codigo : 'NEW',
-      nombre: prodEjemplo ? prodEjemplo.nombre : 'Nuevo producto',
+      nombre: prodEjemplo ? (prodEjemplo.nombre || prodEjemplo.name) : 'Nuevo producto',
       precioUnitario: prodEjemplo ? prodEjemplo.precio : 0,
       cantidad: 1,
       estadoItem: 'Pendiente',
@@ -294,7 +317,7 @@ export default function PedidosPage() {
       ...nuevos[index],
       productoId: prod.id,
       codigo: prod.codigo,
-      nombre: prod.nombre,
+      nombre: prod.nombre || prod.name,
       precioUnitario: prod.precio
     };
     setItemsEditadosTemp(nuevos);
@@ -432,7 +455,7 @@ export default function PedidosPage() {
               </tr>
             </thead>
             <tbody>
-              ${(p.items || []).map((item: any) => `
+               ${(p.items || []).map((item: any) => `
                 <tr>
                   <td>${item.codigo || 'PRD'}</td>
                   <td>${item.nombre}</td>
@@ -1122,101 +1145,125 @@ export default function PedidosPage() {
                 </div>
               </div>
 
-              {/* SECCIÓN 1: Agregar desde Inventario (Precio Estándar) */}
+              {/* SECCIÓN 1: Agregar desde Inventario (Precio Estándar) con Buscador Flexible */}
               <div className="space-y-3">
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">1. Agregar Productos desde Inventario (Precio Fijo)</label>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <select
-                      value={productoIdTemp}
-                      onChange={(e) => setProductoIdTemp(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="">-- Seleccionar producto del inventario --</option>
-                      {productos.map((p: any) => (
-                        <option key={p.id} value={p.id}>
-                          {p.codigo} - {p.name || p.nombre} (Disp: {p.stockActual}) - ${p.precio.toLocaleString('es-AR')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="w-28">
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      inputMode="decimal"
-                      value={cantidadTemp}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(',', '.');
-                        if (val === '' || !isNaN(Number(val))) {
-                          setCantidadTemp(val);
-                        }
-                      }}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-amber-500 font-mono"
-                      placeholder="Cant"
+                      placeholder="Escriba para filtrar productos por nombre o código..."
+                      value={busquedaProductoTemp}
+                      onChange={(e) => setBusquedaProductoTemp(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 text-xs rounded-lg focus:outline-none focus:border-amber-500"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={agregarItemAlPedido}
-                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
-                  >
-                    <Plus className="w-4 h-4" /> Añadir
-                  </button>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <select
+                        value={productoIdTemp}
+                        onChange={(e) => setProductoIdTemp(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="">-- Seleccionar producto del inventario ({productosFiltradosTemp.length} disponibles) --</option>
+                        {productosFiltradosTemp.map((p: any) => (
+                          <option key={p.id} value={p.id}>
+                            {p.codigo} - {p.name || p.nombre} (Disp: {p.stockActual}) - ${p.precio.toLocaleString('es-AR')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-28">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={cantidadTemp}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(',', '.');
+                          if (val === '' || !isNaN(Number(val))) {
+                            setCantidadTemp(val);
+                          }
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-amber-500 font-mono"
+                        placeholder="Cant"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={agregarItemAlPedido}
+                      className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" /> Añadir
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* SECCIÓN 2: Producto de Inventario con Precio Libre / Volumen */}
+              {/* SECCIÓN 2: Producto de Inventario con Precio Libre / Volumen con Buscador Flexible */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
                 <label className="block text-xs font-bold text-sky-400 uppercase tracking-wider">2. O Agregar desde Inventario con PRECIO LIBRE (Ej: Volumen / Bulto)</label>
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                  <div className="sm:col-span-5">
-                    <select
-                      value={productoIdLibreTemp}
-                      onChange={(e) => setProductoIdLibreTemp(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-sky-500"
-                    >
-                      <option value="">-- Seleccionar producto de inventario --</option>
-                      {productos.map((p: any) => (
-                        <option key={p.id} value={p.id}>
-                          {p.codigo} - {p.name || p.nombre} (Disp: {p.stockActual})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      inputMode="decimal"
-                      value={cantidadLibreTemp}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(',', '.');
-                        if (val === '' || !isNaN(Number(val))) setCantidadLibreTemp(val);
-                      }}
-                      placeholder="Cant"
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-sky-500 font-mono"
+                      placeholder="Escriba para filtrar productos de precio libre..."
+                      value={busquedaProductoLibreTemp}
+                      onChange={(e) => setBusquedaProductoLibreTemp(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 text-xs rounded-lg focus:outline-none focus:border-sky-500"
                     />
                   </div>
-                  <div className="sm:col-span-3">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={precioLibreTemp}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(',', '.');
-                        if (val === '' || !isNaN(Number(val))) setPrecioLibreTemp(val);
-                      }}
-                      placeholder="Precio Unit. Especial ($)"
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-sky-500 font-mono"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <button
-                      type="button"
-                      onClick={agregarItemPrecioLibreAlPedido}
-                      className="w-full bg-sky-600 hover:bg-sky-500 text-white px-3 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" /> Libre
-                    </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                    <div className="sm:col-span-5">
+                      <select
+                        value={productoIdLibreTemp}
+                        onChange={(e) => setProductoIdLibreTemp(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-sky-500"
+                      >
+                        <option value="">-- Seleccionar producto de inventario ({productosFiltradosLibreTemp.length}) --</option>
+                        {productosFiltradosLibreTemp.map((p: any) => (
+                          <option key={p.id} value={p.id}>
+                            {p.codigo} - {p.name || p.nombre} (Disp: {p.stockActual})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={cantidadLibreTemp}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(',', '.');
+                          if (val === '' || !isNaN(Number(val))) setCantidadLibreTemp(val);
+                        }}
+                        placeholder="Cant"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-sky-500 font-mono"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={precioLibreTemp}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(',', '.');
+                          if (val === '' || !isNaN(Number(val))) setPrecioLibreTemp(val);
+                        }}
+                        placeholder="Precio Unit. Especial ($)"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2.5 text-center focus:outline-none focus:border-sky-500 font-mono"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={agregarItemPrecioLibreAlPedido}
+                        className="w-full bg-sky-600 hover:bg-sky-500 text-white px-3 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" /> Libre
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
