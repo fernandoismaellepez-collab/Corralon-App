@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, Minus, BarChart3, AlertTriangle } from 'lucide-react';
+import { Package, Plus, Search, Filter, Edit, X, Trash2, ShoppingCart, Check, BarChart3, AlertTriangle } from 'lucide-react';
 import { useInventario, Producto } from '@/context/InventarioContext';
 import ImportadorExcel from '@/components/ImportadorExcel';
 import { createClient } from '@supabase/supabase-js';
@@ -193,24 +193,28 @@ export default function ProductosPage() {
     setCarritoMostrador(prev => {
       const existe = prev.find(item => item.id === prod.id);
       if (existe) {
-        return prev.map(item => item.id === prod.id ? { ...item, cantidad: item.cantidad + 1 } : item);
+        return prev.map(item => item.id === prod.id ? { ...item, cantidad: Number(item.cantidad || 0) + 1 } : item);
       }
       return [...prev, { ...prod, cantidad: 1 }];
     });
   };
 
-  const cambiarCantidadCarrito = (id: string, delta: number) => {
+  const cambiarCantidadCarritoDirecta = (id: string, nuevoValorStr: string) => {
+    const valorLimpio = nuevoValorStr.replace(',', '.');
     setCarritoMostrador(prev => prev.map(item => {
       if (item.id === id) {
-        const nuevaCant = item.cantidad + delta;
-        return nuevaCant > 0 ? { ...item, cantidad: nuevaCant } : null;
+        if (valorLimpio === '') {
+          return { ...item, cantidad: '' };
+        }
+        const parsed = parseFloat(valorLimpio);
+        return { ...item, cantidad: isNaN(parsed) ? item.cantidad : parsed };
       }
       return item;
-    }).filter(Boolean));
+    }));
   };
 
-  const totalCarrito = carritoMostrador.reduce((acc, item) => acc + (Number(item.precio || 0) * item.cantidad), 0);
-  const totalItemsCount = carritoMostrador.reduce((acc, item) => acc + item.cantidad, 0);
+  const totalCarrito = carritoMostrador.reduce((acc, item) => acc + (Number(item.precio || 0) * (Number(item.cantidad) || 0)), 0);
+  const totalItemsCount = carritoMostrador.reduce((acc, item) => acc + (Number(item.cantidad) || 0), 0);
 
   const procesarCobroFinal = async () => {
     if (carritoMostrador.length === 0) return;
@@ -229,9 +233,9 @@ export default function ProductosPage() {
       items: carritoMostrador.map(i => ({
         id: i.id,
         nombre: i.nombre,
-        cantidad: i.cantidad,
+        cantidad: Number(i.cantidad) || 1,
         precioUnitario: i.precio,
-        subtotal: i.precio * i.cantidad
+        subtotal: i.precio * (Number(i.cantidad) || 1)
       }))
     };
 
@@ -288,7 +292,7 @@ export default function ProductosPage() {
 
       carritoMostrador.forEach(item => {
         if (typeof actualizarStock === 'function') {
-          actualizarStock(item.id, item.cantidad, 'salida', 'stockActual');
+          actualizarStock(item.id, Number(item.cantidad) || 1, 'salida', 'stockActual');
         }
       });
 
@@ -325,7 +329,6 @@ export default function ProductosPage() {
     return { totalPedidosGlobal };
   })();
 
-  // Criterio de búsqueda flexible por palabras parciales (MODIFICADO AQUÍ)
   const productosFiltrados = productos.filter((p: any) => {
     const textoBusqueda = busqueda.trim().toLowerCase();
     const nombreProd = String(p.nombre || '').toLowerCase();
@@ -378,17 +381,36 @@ export default function ProductosPage() {
             <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
               {carritoMostrador.length > 0 ? (
                 carritoMostrador.map((item, idx) => (
-                  <div key={idx} className="bg-slate-950 p-2.5 rounded-xl flex items-center justify-between text-xs">
-                    <div>
+                  <div key={idx} className="bg-slate-950 p-2.5 rounded-xl flex items-center justify-between text-xs gap-2">
+                    <div className="flex-1">
                       <span className="text-white font-medium block">{item.nombre}</span>
-                      <span className="text-[10px] text-amber-400 font-mono">${Number(item.precio).toLocaleString('es-AR')} c/u</span>
+                      <span className="text-[10px] text-amber-400 font-mono">${Number(item.precio || 0).toLocaleString('es-AR')} c/u</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center bg-slate-900 rounded border border-slate-800">
-                        <button onClick={() => cambiarCantidadCarrito(item.id, -1)} className="px-1.5 py-0.5 text-slate-400 hover:text-white cursor-pointer"><Minus className="w-3 h-3" /></button>
-                        <span className="px-2 font-mono text-white">{item.cantidad}</span>
-                        <button onClick={() => cambiarCantidadCarrito(item.id, 1)} className="px-1.5 py-0.5 text-slate-400 hover:text-white cursor-pointer"><Plus className="w-3 h-3" /></button>
+                      <div className="w-20">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={item.cantidad}
+                          onChange={(e) => cambiarCantidadCarritoDirecta(item.id, e.target.value)}
+                          onBlur={(e) => {
+                            if (e.target.value === '' || Number(e.target.value) <= 0) {
+                              cambiarCantidadCarritoDirecta(item.id, '1');
+                            }
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white text-center font-mono focus:outline-none focus:border-amber-500"
+                          placeholder="Cant"
+                        />
                       </div>
+                      <button 
+                        onClick={() => {
+                          setCarritoMostrador(prev => prev.filter(i => i.id !== item.id));
+                        }} 
+                        className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"
+                        title="Quitar producto"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -474,7 +496,7 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {/* CABECERA LIMPIA (SIN PESTAÑAS DE RANKING) */}
+      {/* CABECERA LIMPIA */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2.5 rounded-xl text-xs font-bold text-amber-400">
           <Package className="w-4 h-4" /> Catálogo y Venta General
@@ -632,7 +654,7 @@ export default function ProductosPage() {
                   {carritoMostrador.map((i, idx) => (
                     <div key={idx} className="flex justify-between text-slate-300">
                       <span>{i.cantidad}x {i.nombre}</span>
-                      <span className="font-mono">${(i.precio * i.cantidad).toLocaleString('es-AR')}</span>
+                      <span className="font-mono">${(i.precio * (Number(i.cantidad) || 1)).toLocaleString('es-AR')}</span>
                     </div>
                   ))}
                 </div>
